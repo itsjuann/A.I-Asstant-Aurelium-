@@ -23,7 +23,7 @@ That is all. AURELIUM detects whether you are on Windows, macOS, or Linux and ad
 Open a terminal (Windows: press Start, type **cmd**, press Enter. macOS: open **Terminal**). Then paste:
 
 ```
-git clone https://github.com/itsjuann/A.I-Asstant-Aurelium-.git AURELIUM
+git clone -b claude/great-feynman-0xexlk https://github.com/itsjuann/A.I-Asstant-Aurelium-.git AURELIUM
 cd AURELIUM
 npm run setup
 ```
