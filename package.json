@@ -1,0 +1,21 @@
+{
+  "name": "aurelium",
+  "productName": "AURELIUM",
+  "version": "0.1.0",
+  "description": "AURELIUM - a personal desktop AI chief of staff for Juan",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "setup": "node scripts/setup.js",
+    "shortcut": "node scripts/make-shortcut.js",
+    "detect-os": "node scripts/detect-os.js"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^45.3.1"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}

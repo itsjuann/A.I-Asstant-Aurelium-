@@ -1,0 +1,9 @@
+{
+  "note": "Today's tasks shown on the HUD. Phase 3 replaces this with your Obsidian daily note.",
+  "tasks": [
+    { "text": "Review Aurelium Motion demo call pipeline", "done": false },
+    { "text": "Check PeakHive ad spend vs. ROAS", "done": false },
+    { "text": "Approve Eccellenti drop creatives", "done": true },
+    { "text": "Vorynx Lab: outline onboarding flow", "done": false }
+  ]
+}

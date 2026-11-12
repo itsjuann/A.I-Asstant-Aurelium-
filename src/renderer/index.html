@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https: wss:;" />
+  <title>AURELIUM</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div id="vignette"></div>
+
+  <!-- HUD: thin panels on the edges -->
+  <section class="hud panel top-left" id="panel-clock">
+    <div class="wordmark">AURELIUM</div>
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="date" id="date">—</div>
+  </section>
+
+  <section class="hud panel top-right" id="panel-system">
+    <div class="label">SYSTEM</div>
+    <div class="row"><span>OS</span><span id="sys-os">—</span></div>
+    <div class="row"><span>CPU</span><span id="sys-cpu">—</span></div>
+    <div class="bar"><i id="bar-cpu"></i></div>
+    <div class="row"><span>MEMORY</span><span id="sys-mem">—</span></div>
+    <div class="bar"><i id="bar-mem"></i></div>
+    <div class="row"><span>UPTIME</span><span id="sys-up">—</span></div>
+    <div class="row"><span>RENDER</span><span id="sys-fps">—</span></div>
+  </section>
+
+  <section class="hud panel bottom-left" id="panel-tasks">
+    <div class="label">TODAY</div>
+    <ul id="tasks" class="tasks"></ul>
+  </section>
+
+  <section class="hud panel right" id="panel-transcript">
+    <div class="label">TRANSCRIPT</div>
+    <div id="transcript" class="transcript">
+      <div class="line system">Voice link offline. Awaiting Phase 2.</div>
+    </div>
+  </section>
+
+  <section class="hud bottom-center" id="panel-state">
+    <div class="state-indicator"><span class="dot"></span><span id="state-label">IDLE</span></div>
+    <div class="hint">1 idle · 2 listening · 3 thinking · 4 speaking · SPACE demo · F11 window · ESC exit</div>
+  </section>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
