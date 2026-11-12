@@ -7,9 +7,9 @@ function buildTools({ vault, log }) {
     {
       name: 'search_vault',
       description: 'Search Juan\'s second brain (Obsidian vault) for notes matching a query. Use this BEFORE answering anything about his businesses, clients, people, plans, numbers or past decisions. Returns the best matching notes with snippets.',
-      input_schema: { type: 'object', properties: { query: { type: 'string', description: 'Keywords or a short phrase' }, limit: { type: 'integer', minimum: 1, maximum: 20 } }, required: ['query'], additionalProperties: false },
+      input_schema: { type: 'object', properties: { query: { type: 'string', description: 'Keywords or a short phrase' }, limit: { type: 'integer', description: 'How many results, 1 to 20' } }, required: ['query'], additionalProperties: false },
       strict: true,
-      run: ({ query, limit }) => ({ results: vault.search(query, limit || 8) })
+      run: ({ query, limit }) => ({ results: vault.search(query, Math.max(1, Math.min(20, limit || 8))) })
     },
     {
       name: 'read_note',
@@ -70,9 +70,9 @@ function buildTools({ vault, log }) {
     {
       name: 'open_tasks',
       description: 'List open (unchecked) and done tasks from the daily notes of the last few days.',
-      input_schema: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 30 } }, required: [], additionalProperties: false },
+      input_schema: { type: 'object', properties: { days: { type: 'integer', description: 'How many days back, 1 to 30' } }, required: [], additionalProperties: false },
       strict: true,
-      run: ({ days }) => ({ tasks: vault.openTasks(days || 7) })
+      run: ({ days }) => ({ tasks: vault.openTasks(Math.max(1, Math.min(30, days || 7))) })
     }
   ];
   const handlers = Object.fromEntries(defs.map(d => [d.name, d.run]));
