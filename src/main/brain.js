@@ -39,11 +39,14 @@ function cleanForSpeech(text) {
 const MAX_TOOL_ROUNDS = 8;
 
 class Brain {
-  constructor({ osName, tools = null, vaultRoot = '', onToolUse = () => {} }) {
+  constructor({ osName, tools = null, vaultRoot = '', onToolUse = () => {}, onServerTool = () => {}, webTools = [] }) {
     this.osName = osName;
     this.tools = tools;            // { schemas, handlers } or null
     this.vaultRoot = vaultRoot;
     this.onToolUse = onToolUse;
+    this.onServerTool = onServerTool;
+    this.webTools = webTools;      // Anthropic-hosted tools (web search / fetch)
+    this.webEnabled = webTools.length > 0;
     this.history = [];
     this.client = config.anthropicKey ? new Anthropic({ apiKey: config.anthropicKey }) : null;
     this.useFallbacks = true;
@@ -78,12 +81,14 @@ class Brain {
       max_tokens: 4096,
       system: [{ type: 'text', text: systemPrompt({
         userName: config.userName, osName: this.osName, now: today.toString(), vaultRoot: this.vaultRoot,
-        today: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+        today: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
+        assistantName: config.assistantName, web: this.webEnabled
       }) }],
       messages: this.history,
       output_config: { effort: config.claudeEffort }
     };
-    if (this.tools) params.tools = this.tools.schemas;
+    const toolList = [...(this.tools ? this.tools.schemas : []), ...(this.webEnabled ? this.webTools : [])];
+    if (toolList.length) params.tools = toolList;
 
     const run = async (withFallbacks) => {
       const stream = withFallbacks
@@ -102,13 +107,21 @@ class Brain {
         try {
           final = await run(this.useFallbacks);
         } catch (err) {
-          // If the account or endpoint rejects the fallback option, retry once without it and remember that.
-          if (this.useFallbacks && err instanceof Anthropic.BadRequestError && !full) { this.useFallbacks = false; final = await run(false); }
-          else throw err;
+          if (err instanceof Anthropic.BadRequestError && !full && this.webEnabled && /web_search|web_fetch/i.test(err.message)) {
+            // This account cannot use the hosted web tools: drop them and carry on.
+            this.webEnabled = false;
+            params.tools = this.tools ? this.tools.schemas : undefined;
+            final = await run(this.useFallbacks);
+          } else if (this.useFallbacks && err instanceof Anthropic.BadRequestError && !full) {
+            // If the account or endpoint rejects the fallback option, retry once without it and remember that.
+            this.useFallbacks = false; final = await run(false);
+          } else throw err;
         }
-        // Keep the full content (thinking + text + tool_use) so the conversation stays valid.
+        // Keep the full content (thinking + text + tool_use + web results) so the conversation stays valid.
         this.history.push({ role: 'assistant', content: final.content });
+        for (const b of final.content) if (b.type === 'server_tool_use') this.onServerTool(b.name, b.input);
         if (final.stop_reason === 'refusal') { if (!full) feed('I would rather not go there. Give me a different angle and I will help.'); break; }
+        if (final.stop_reason === 'pause_turn') continue;   // server-side web work paused; resend to let it resume
         if (final.stop_reason !== 'tool_use' || !this.tools) break;
         const uses = final.content.filter(b => b.type === 'tool_use');
         const results = [];

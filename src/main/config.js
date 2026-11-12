@@ -19,6 +19,8 @@ const bool = (k, d = false) => { const v = str(k).toLowerCase(); return v ? ['1'
 const config = {
   root: ROOT,
   userName: str('USER_NAME', 'Juan'),
+  assistantName: str('ASSISTANT_NAME', 'Motion'),
+  webSearch: bool('WEB_SEARCH', true),
   anthropicKey: str('ANTHROPIC_API_KEY'),
   claudeModel: str('CLAUDE_MODEL', 'claude-opus-5-5'),
   claudeEffort: str('CLAUDE_EFFORT', 'low'),
@@ -30,7 +32,7 @@ const config = {
   whisperModel: str('WHISPER_MODEL', 'Xenova/whisper-base.en'),
   modelCacheDir: str('MODEL_CACHE_DIR', path.join(ROOT, 'models')),
   wakeWord: bool('WAKE_WORD', false),
-  wakeWordText: str('WAKE_WORD_TEXT', 'aurelium').toLowerCase(),
+  wakeWordText: str('WAKE_WORD_TEXT', str('ASSISTANT_NAME', 'Motion')).toLowerCase(),
   pttHotkey: str('PTT_HOTKEY', 'Alt+Space'),
   vaultPath: str('VAULT_PATH'),
   mockBrain: bool('AURELIUM_MOCK_BRAIN', false)
@@ -59,7 +61,9 @@ function readiness() {
       : config.sttResolved === 'openai' ? (config.openaiKey ? 'OpenAI Whisper API' : 'missing OPENAI_API_KEY')
       : `unknown STT_MODE "${config.sttResolved}"`,
     wakeWord: config.wakeWord ? `on ("${config.wakeWordText}")` : 'off',
-    hotkey: config.pttHotkey
+    hotkey: config.pttHotkey,
+    assistantName: config.assistantName,
+    web: config.webSearch ? 'on' : 'off'
   };
 }
 

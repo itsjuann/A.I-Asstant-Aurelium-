@@ -1,7 +1,9 @@
 # AURELIUM
 
-AURELIUM is Juan's personal desktop AI assistant: a full-screen "face" made of
-18,000 glowing particles, with voice, a brain, and a second brain in Obsidian.
+AURELIUM is Juan's personal desktop AI assistant. The assistant herself is
+called **Motion**. The app is a full-screen "face" made of 18,000 glowing
+particles, with voice, a brain, a second brain in Obsidian, and the ability
+to act on the computer and search the web.
 It is being built in phases. This README is updated as each phase lands.
 
 | Phase | What it is | Status |
@@ -9,7 +11,7 @@ It is being built in phases. This README is updated as each phase lands.
 | 1 | The face: full-screen particle entity + HUD | Ready to test |
 | 2 | Voice + brain: push-to-talk, Whisper, Claude, ElevenLabs | Ready to test |
 | 3 | Second brain: Obsidian vault, memory, morning briefing | Ready to test |
-| 4 | Actions: open apps, tasks, email drafts, web search | Not started |
+| 4 | Actions: open apps, tasks, email drafts, web search | Ready to test |
 
 ## What you need on your computer
 
@@ -106,7 +108,7 @@ On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** 
 |-----|-----------|
 | Hold to talk | Hold **Space**, speak, release. |
 | From any app | Press **Option+Space** once to start, again to stop. (Change with `PTT_HOTKEY` in `.env`.) |
-| Wake word | Press **W** in the app, or set `WAKE_WORD=on`. Then say "Aurelium, ..." followed by your request. Say just "Aurelium" and she answers "Yes, Juan?" and waits. |
+| Wake word | Press **W** in the app, or set `WAKE_WORD=on`. Then say "Motion, ..." followed by your request. Say just "Motion" and she answers "Yes, Juan?" and waits. |
 | Typing | Press **Enter**, type, press Enter. Useful without a microphone. |
 | Interrupt | Press Space (or the hotkey) while she is speaking to cut in. Esc stops playback. |
 | Start over | Press **R** to clear the conversation. |
@@ -123,9 +125,9 @@ tail -50 data/aurelium.log
 
 1. Fill in the two keys, run `npm run doctor`, make sure everything says OK.
 2. Launch AURELIUM. The status line under the state indicator should read `BRAIN ready · VOICE ready · EARS ...`.
-3. Hold Space and say: "Aurelium, give me a quick status check." Release. You should see your words in the transcript, the entity go into thinking, then she speaks and the entity pulses with her voice.
+3. Hold Space and say: "Motion, give me a quick status check." Release. You should see your words in the transcript, the entity go into thinking, then she speaks and the entity pulses with her voice.
 4. Press Enter and type a question to test the brain without the microphone.
-5. Press W, then say "Aurelium, what time is it?" to test the wake word.
+5. Press W, then say "Motion, what time is it?" to test the wake word.
 
 If something fails, the transcript panel shows the reason in italics. Send me that line.
 
@@ -178,12 +180,44 @@ Each folder has a starter note explaining what goes there.
 5. Say "Brain dump" and talk for a minute about anything on your mind. Check the notes she filed.
 6. Press **B** for the briefing.
 
+## Phase 4: actions and the web
+
+Motion can now act, and every action is written to the Log section of today's daily note.
+
+| Say | What happens |
+|-----|--------------|
+| "Open Safari" / "Open Obsidian" / "Open Spotify" | The app opens. Any app name works; common ones have shortcuts (browser, mail, calendar, notes, terminal, slack, zoom, settings). |
+| "Open peakhive.com" / "Pull up the Shopify admin" | The site opens in your default browser. |
+| "Add a task: call the dentist Friday" | A checkbox task goes into today's daily note and the TODAY panel. |
+| "Draft an email to Dr Patel confirming Thursday's demo" | She writes the draft, saves it in `00 Inbox`, and opens it in your Mail app ready for you to review. **She cannot send.** Only you can press Send. |
+| "What are Shopify's checkout fees this year?" / "Search the web for ..." | She searches the web and reads pages (this runs on Anthropic's side, no extra key), then briefs you and names the source. |
+
+Her name, wake word and web access are in `.env`:
+
+```
+ASSISTANT_NAME=Motion
+WAKE_WORD_TEXT=motion
+WEB_SEARCH=on
+```
+
+Note on the wake word: "motion" is an ordinary English word, so with the wake word on she may react when you say it in normal conversation. Push-to-talk (hold Space) avoids that.
+
+### Testing Phase 4
+
+1. `git pull`, then `npm start`. The status line should start with `MOTION`.
+2. Say "Motion, open Safari." Safari opens; the daily note's Log gains a line.
+3. Say "Open peakhive.com."
+4. Say "Add a task: send Bright Smile the proposal by Friday." Check the TODAY panel.
+5. Say "Draft an email to Dr Patel confirming the demo on Thursday at 2pm." Mail opens with the draft. Do not send unless you want to.
+6. Say "What's the weather in Miami right now?" or "What's new with Shopify this week?" She should search and brief you.
+7. Open today's daily note in Obsidian: every action should be listed under Log.
+
 ## Project layout (plain English)
 
 - `main.js` - the Electron "backstage": opens the window, reads CPU and memory, talks to the page.
 - `preload.js` - the narrow bridge between backstage and the page.
 - `src/renderer/` - the page itself: `index.html` (layout), `style.css` (look), `app.js` (HUD logic), `entity.js` (the particle entity, Three.js).
-- `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how AURELIUM speaks), `brain.js` (Claude, streaming, tool calls), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `vault.js` (the Obsidian second brain), `tools.js` (what the brain can do with the vault), `pipeline.js` (ties it together).
+- `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how Motion speaks), `brain.js` (Claude, streaming, tool calls, web tools), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `vault.js` (the Obsidian second brain), `tools.js` (vault tools), `actions.js` (open apps and sites, tasks, email drafts, web tool definitions), `pipeline.js` (ties it together).
 - `scripts/` - `detect-os.js` (which OS and hardware), `setup.js` (first-time setup), `doctor.js` (checks keys and services), `make-shortcut.js` (desktop shortcut), `make-icon.js` (generates the app icon).
 - `data/tasks.json` - placeholder task list for the HUD.
 - `.env.example` - template for the API keys and settings. Copy to `.env` (setup does this).

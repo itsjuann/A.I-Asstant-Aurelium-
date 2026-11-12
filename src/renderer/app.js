@@ -70,7 +70,7 @@ const openLines = new Map();
 function addTranscript(role, text) {
   const line = document.createElement('div');
   line.className = `line ${role}`;
-  if (role !== 'system') { const who = document.createElement('span'); who.className = 'who'; who.textContent = role === 'you' ? 'JUAN' : 'AURELIUM'; line.appendChild(who); }
+  if (role !== 'system') { const who = document.createElement('span'); who.className = 'who'; who.textContent = role === 'you' ? 'JUAN' : assistantName; line.appendChild(who); }
   const body = document.createElement('span'); body.className = 'body'; body.textContent = text; line.appendChild(body);
   transcript.appendChild(line);
   while (transcript.children.length > 14) transcript.removeChild(transcript.firstChild);
@@ -91,7 +91,8 @@ function setVoiceStatus(text, sticky = false) {
   if (!sticky) statusTimer = setTimeout(() => { voiceStatus.textContent = readyLine; }, 8000);
 }
 let readyLine = '';
-api.onReady((r) => { readyLine = `BRAIN ${r.brain} · VOICE ${r.voice} · EARS ${r.stt} · WAKE ${r.wakeWord}`; setVoiceStatus(readyLine, true); });
+let assistantName = 'MOTION';
+api.onReady((r) => { assistantName = (r.assistantName || 'Motion').toUpperCase(); readyLine = `${assistantName} · BRAIN ${r.brain} · VOICE ${r.voice} · EARS ${r.stt} · WEB ${r.web} · WAKE ${r.wakeWord}`; setVoiceStatus(readyLine, true); });
 
 // ---------------- Voice loop ----------------
 const mic = new Mic();
@@ -154,7 +155,7 @@ const wakeListener = new SegmentListener(mic, {
 });
 async function toggleWake() {
   wakeOn = !wakeOn;
-  if (wakeOn) { try { await mic.init(); } catch (err) { wakeOn = false; addTranscript('system', `Microphone unavailable: ${err.message}`); return; } wakeListener.start(); $('wake-indicator').hidden = false; setVoiceStatus('Wake word on. Say "Aurelium" followed by your request.', true); }
+  if (wakeOn) { try { await mic.init(); } catch (err) { wakeOn = false; addTranscript('system', `Microphone unavailable: ${err.message}`); return; } wakeListener.start(); $('wake-indicator').hidden = false; setVoiceStatus(`Wake word on. Say "${assistantName.charAt(0) + assistantName.slice(1).toLowerCase()}" followed by your request.`, true); }
   else { wakeListener.stop(); $('wake-indicator').hidden = true; setVoiceStatus('Wake word off.'); }
 }
 

@@ -6,6 +6,7 @@ const { SpeechQueue, synthesize } = require('./tts');
 const { SpeechToText } = require('./stt');
 const { openVault, dateKey } = require('./vault');
 const { buildTools } = require('./tools');
+const { buildActionTools, WEB_TOOLS } = require('./actions');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,15 +14,29 @@ const STATE_FILE = path.join(config.root, 'data', 'state.json');
 const readState = () => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (_) { return {}; } };
 const writeState = (patch) => { const s = { ...readState(), ...patch }; fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); };
 
-const WAKE_VARIANTS = ['aurelium', 'aurelian', 'orelium', 'aurelio', 'aurelia', 'a relium', 'oralium', 'aurillium'];
+const WAKE_VARIANTS = {
+  aurelium: ['aurelium', 'aurelian', 'orelium', 'aurelio', 'aurelia', 'a relium', 'oralium', 'aurillium'],
+  motion: ['motion', 'emotion', 'moshun', 'motian']
+};
 
 class Pipeline {
   constructor({ win, osName }) {
     this.win = win;
     this.vaultInfo = openVault({ preferred: config.vaultPath, onStatus: (t) => console.log('[AURELIUM]', t) });
     this.vault = this.vaultInfo.vault;
-    this.tools = buildTools({ vault: this.vault, log: (a, b) => console.log('[AURELIUM]', a, b) });
-    this.brain = new Brain({ osName, tools: this.tools, vaultRoot: this.vaultInfo.root, onToolUse: (name) => this.status(this._toolLabel(name)) });
+    const vaultTools = buildTools({ vault: this.vault, log: (a, b) => console.log('[AURELIUM]', a, b) });
+    const actionTools = buildActionTools({ vault: this.vault, log: (t) => console.log('[AURELIUM] action:', t) });
+    this.tools = { schemas: [...vaultTools.schemas, ...actionTools.schemas], handlers: { ...vaultTools.handlers, ...actionTools.handlers } };
+    this.brain = new Brain({
+      osName, tools: this.tools, vaultRoot: this.vaultInfo.root,
+      webTools: config.webSearch ? WEB_TOOLS : [],
+      onToolUse: (name) => this.status(this._toolLabel(name)),
+      onServerTool: (name, input) => {
+        const what = name === 'web_search' ? `Web search: ${input && input.query ? input.query : ''}` : `Read web page: ${input && input.url ? input.url : ''}`;
+        this.status(name === 'web_search' ? 'Searching the web…' : 'Reading a web page…');
+        try { this.vault.appendDaily('Log', what); } catch (_) {}
+      }
+    });
     this.stt = new SpeechToText({ onStatus: (t) => this.status(t) });
     this.runId = 0;
     this.current = null;   // { id, abort, queue }
@@ -35,7 +50,7 @@ class Pipeline {
   boot() {
     const r = readiness();
     this.send('voice:ready', r);
-    this.status(`Brain: ${r.brain}. Voice: ${r.voice}. Ears: ${r.stt}. Hotkey: ${r.hotkey}. Wake word: ${r.wakeWord}.`);
+    this.status(`${config.assistantName} online. Brain: ${r.brain}. Voice: ${r.voice}. Ears: ${r.stt}. Web: ${r.web}. Hotkey: ${r.hotkey}. Wake word: ${r.wakeWord}.`);
     const vi = this.vaultInfo;
     this.status(vi.existed ? `Second brain: ${vi.root}` : `Second brain created at ${vi.root}. In Obsidian choose "Open folder as vault" and pick it.`);
     this.vault.ensureDaily();
@@ -45,7 +60,8 @@ class Pipeline {
 
   _toolLabel(name) {
     return { search_vault: 'Searching the vault…', read_note: 'Reading a note…', list_notes: 'Listing notes…', create_note: 'Filing a note…',
-      append_note: 'Adding to a note…', append_daily: 'Updating today\'s daily note…', link_notes: 'Linking notes…', open_tasks: 'Checking open tasks…' }[name] || `Using ${name}…`;
+      append_note: 'Adding to a note…', append_daily: 'Updating today\'s daily note…', link_notes: 'Linking notes…', open_tasks: 'Checking open tasks…',
+      open_app: 'Opening the app…', open_website: 'Opening the website…', create_task: 'Adding the task…', draft_email: 'Drafting the email…' }[name] || `Using ${name}…`;
   }
 
   // First launch of the day: spoken briefing from yesterday's note and open tasks.
@@ -145,7 +161,7 @@ ${open.length ? open.map(t => `- ${t.text} (${t.date})`).join('\n') : '(none)'}`
     let text = '';
     try { text = (await this.stt.transcribe(samples)).toLowerCase(); } catch (_) { return { heard: false }; }
     if (!text) return { heard: false };
-    const variants = [config.wakeWordText, ...WAKE_VARIANTS];
+    const variants = [config.wakeWordText, ...(WAKE_VARIANTS[config.wakeWordText] || [])];
     let idx = -1, hit = '';
     for (const v of variants) { const i = text.indexOf(v); if (i !== -1 && (idx === -1 || i < idx)) { idx = i; hit = v; } }
     if (idx === -1) return { heard: false };
