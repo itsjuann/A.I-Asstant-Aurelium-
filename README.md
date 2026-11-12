@@ -7,7 +7,7 @@ It is being built in phases. This README is updated as each phase lands.
 | Phase | What it is | Status |
 |-------|------------|--------|
 | 1 | The face: full-screen particle entity + HUD | Ready to test |
-| 2 | Voice + brain: push-to-talk, Whisper, Claude, ElevenLabs | Not started |
+| 2 | Voice + brain: push-to-talk, Whisper, Claude, ElevenLabs | Ready to test |
 | 3 | Second brain: Obsidian vault, memory, morning briefing | Not started |
 | 4 | Actions: open apps, tasks, email drafts, web search | Not started |
 
@@ -60,7 +60,7 @@ Keys while the app is open:
 | `2` | Listening: particles pull inward and brighten |
 | `3` | Thinking: swirling orbit |
 | `4` | Speaking: pulses with the voice volume (simulated until Phase 2) |
-| `Space` | Demo cycle through all four states, every 4 seconds |
+| `D` | Demo cycle through all four states, every 4 seconds |
 | `F11` | Toggle between full-screen and a window |
 | `Esc` or `Ctrl+Q` (`Cmd+Q` on Mac) | Exit |
 
@@ -72,14 +72,63 @@ you have.
 Today's tasks on the HUD come from `data/tasks.json` for now. Phase 3 replaces
 that with your Obsidian daily note.
 
+## Phase 2: voice + brain
+
+### The two keys you need
+
+Open the `.env` file in the AURELIUM folder (TextEdit is fine) and fill in:
+
+| Key | Where to get it |
+|-----|-----------------|
+| `ANTHROPIC_API_KEY` | <https://console.anthropic.com/settings/keys>, click **Create Key**, copy it. This powers the brain (Claude). |
+| `ELEVENLABS_API_KEY` | <https://elevenlabs.io/app/settings/api-keys>, click **Create API Key**. Tick the permissions **Text to Speech**, **Speech to Text** and **Voices**. This powers the voice and, when needed, the ears. |
+
+`ELEVENLABS_VOICE_ID` is already filled in with the voice you chose (Option A, Cate). No OpenAI key is needed.
+
+Then check everything in one go:
+
+```
+npm run doctor
+```
+
+It prints OK or FAIL for the brain, the voice and the ears, with the fix for each FAIL in plain English.
+
+### How speech-to-text is chosen
+
+On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** (nothing leaves your machine for transcription). The first launch downloads the speech model once, about 75 MB, into the `models` folder; the HUD shows the progress. If local Whisper cannot load, it falls back to ElevenLabs Scribe automatically. You can force a mode with `STT_MODE` in `.env` (`local`, `elevenlabs` or `openai`).
+
+### Talking to AURELIUM
+
+| How | What to do |
+|-----|-----------|
+| Hold to talk | Hold **Space**, speak, release. |
+| From any app | Press **Option+Space** once to start, again to stop. (Change with `PTT_HOTKEY` in `.env`.) |
+| Wake word | Press **W** in the app, or set `WAKE_WORD=on`. Then say "Aurelium, ..." followed by your request. Say just "Aurelium" and she answers "Yes, Juan?" and waits. |
+| Typing | Press **Enter**, type, press Enter. Useful without a microphone. |
+| Interrupt | Press Space (or the hotkey) while she is speaking to cut in. Esc stops playback. |
+| Start over | Press **R** to clear the conversation. |
+
+macOS will ask for microphone permission the first time. If you ever denied it, go to **System Settings > Privacy & Security > Microphone** and turn on Electron / AURELIUM.
+
+### Testing Phase 2
+
+1. Fill in the two keys, run `npm run doctor`, make sure everything says OK.
+2. Launch AURELIUM. The status line under the state indicator should read `BRAIN ready · VOICE ready · EARS ...`.
+3. Hold Space and say: "Aurelium, give me a quick status check." Release. You should see your words in the transcript, the entity go into thinking, then she speaks and the entity pulses with her voice.
+4. Press Enter and type a question to test the brain without the microphone.
+5. Press W, then say "Aurelium, what time is it?" to test the wake word.
+
+If something fails, the transcript panel shows the reason in italics. Send me that line.
+
 ## Project layout (plain English)
 
 - `main.js` - the Electron "backstage": opens the window, reads CPU and memory, talks to the page.
 - `preload.js` - the narrow bridge between backstage and the page.
 - `src/renderer/` - the page itself: `index.html` (layout), `style.css` (look), `app.js` (HUD logic), `entity.js` (the particle entity, Three.js).
-- `scripts/` - `detect-os.js` (which OS and hardware), `setup.js` (first-time setup), `make-shortcut.js` (desktop shortcut), `make-icon.js` (generates the app icon).
+- `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how AURELIUM speaks), `brain.js` (Claude, streaming), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `pipeline.js` (ties it together).
+- `scripts/` - `detect-os.js` (which OS and hardware), `setup.js` (first-time setup), `doctor.js` (checks keys and services), `make-shortcut.js` (desktop shortcut), `make-icon.js` (generates the app icon).
 - `data/tasks.json` - placeholder task list for the HUD.
-- `.env.example` - template for the API keys Phase 2 will need. Copy to `.env` (setup does this).
+- `.env.example` - template for the API keys and settings. Copy to `.env` (setup does this).
 
 ## Design notes
 

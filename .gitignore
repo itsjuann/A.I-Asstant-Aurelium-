@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 
 # Keep the example env file in git
 !.env.example
+
+# Local speech model cache
+models/

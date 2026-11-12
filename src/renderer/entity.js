@@ -126,7 +126,7 @@ void main() {
 
   // Radial scale: breathing, pulling in, swirling out, pulsing with voice.
   float breath = 1.0 + 0.028 * sin(t * 0.8 + ring * 3.0) * uIdle;
-  float listen = 1.0 - 0.27 * uListen;
+  float listen = 1.0 - (0.27 + 0.08 * uLevel) * uListen;
   float think  = 1.0 + 0.16 * uThink * (0.6 + 0.4 * sin(t * 2.0 + ring * 12.0));
   float pulse  = 1.0 + uSpeak * uLevel * (0.10 + 0.16 * sin(t * 22.0 + ring * 8.0 + rnd * 3.0));
   float scale  = breath * listen * think * pulse;
@@ -149,7 +149,7 @@ void main() {
   gl_PointSize = size * uPixelRatio * (0.8 + 0.7 * rnd) / -mv.z;
 
   float bright = 0.95 + 0.55 * rnd;
-  bright *= 1.0 + 0.7 * uListen + 0.6 * uSpeak * uLevel + 0.25 * uThink;
+  bright *= 1.0 + 0.7 * uListen + 0.5 * uListen * uLevel + 0.6 * uSpeak * uLevel + 0.25 * uThink;
   bright *= 0.8 + 0.2 * sin(t * 3.0 + ang * 6.0 + ring * 30.0);
   if (isShell) bright *= smoothstep(0.0, 0.14, ring);   // dissolve the chest cut-off
   vBright = bright;
