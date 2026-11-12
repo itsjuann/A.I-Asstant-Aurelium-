@@ -19,12 +19,21 @@ async function synthesize(text, { signal } = {}) {
       voice_settings: { stability: 0.65, similarity_boost: 0.8, style: 0.1, speed: 0.95 }
     })
   });
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.text()).slice(0, 200); } catch (_) {}
-    throw new Error(`ElevenLabs ${res.status}: ${detail || res.statusText}`);
-  }
+  if (!res.ok) throw new Error(await explainElevenLabsError(res));
   return Buffer.from(await res.arrayBuffer());
+}
+
+// Turn an ElevenLabs error into one plain sentence Juan can act on.
+async function explainElevenLabsError(res) {
+  let body = '';
+  try { body = await res.text(); } catch (_) {}
+  let status = '', message = '';
+  try { const j = JSON.parse(body); status = (j.detail && j.detail.status) || ''; message = (j.detail && j.detail.message) || ''; } catch (_) {}
+  if (status === 'quota_exceeded' || /quota|character limit|credits/i.test(message)) return `ElevenLabs says your plan's credits are used up. Top up or upgrade at elevenlabs.io (Subscription), then try again. (${message.slice(0, 120)})`;
+  if (res.status === 401) return `ElevenLabs rejected the API key (${status || 'unauthorized'}). Check ELEVENLABS_API_KEY in .env and the key's permissions.`;
+  if (res.status === 404) return 'ElevenLabs could not find that voice. Check ELEVENLABS_VOICE_ID in .env.';
+  if (res.status === 429) return 'ElevenLabs is rate limiting us. Wait a few seconds and try again.';
+  return `ElevenLabs ${res.status}: ${message || body.slice(0, 160) || res.statusText}`;
 }
 
 // Keeps sentence order while allowing overlap in the network requests.
@@ -67,4 +76,4 @@ async function listVoices() {
   return (await res.json()).voices || [];
 }
 
-module.exports = { synthesize, SpeechQueue, listVoices };
+module.exports = { synthesize, SpeechQueue, listVoices, explainElevenLabsError };

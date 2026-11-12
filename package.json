@@ -6,11 +6,12 @@
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/start.js",
     "setup": "node scripts/setup.js",
     "shortcut": "node scripts/make-shortcut.js",
     "detect-os": "node scripts/detect-os.js",
-    "doctor": "node scripts/doctor.js"
+    "doctor": "node scripts/doctor.js",
+    "start:dev": "node scripts/start.js --dev"
   },
   "license": "UNLICENSED",
   "devDependencies": {

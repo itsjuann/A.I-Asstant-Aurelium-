@@ -62,6 +62,7 @@ Keys while the app is open:
 | `4` | Speaking: pulses with the voice volume (simulated until Phase 2) |
 | `D` | Demo cycle through all four states, every 4 seconds |
 | `V` | Voice test: she speaks a fixed line so you can check the speakers |
+| `Enter` | Type a message instead of speaking |
 | `B` | Daily briefing |
 | `F11` | Toggle between full-screen and a window |
 | `Esc` or `Ctrl+Q` (`Cmd+Q` on Mac) | Exit |
@@ -110,7 +111,13 @@ On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** 
 | Interrupt | Press Space (or the hotkey) while she is speaking to cut in. Esc stops playback. |
 | Start over | Press **R** to clear the conversation. |
 
-macOS will ask for microphone permission the first time. If you ever denied it, go to **System Settings > Privacy & Security > Microphone** and turn on Electron / AURELIUM.
+**Microphone permission on macOS.** `npm start` (and the desktop shortcut) now opens the app the proper macOS way, so the first time you hold Space, macOS shows "Electron would like to access the microphone". Click **Allow**. If the app ever reports silence or "Nothing heard", open **System Settings > Privacy & Security > Microphone** and make sure **Electron** is switched on (and **Terminal**, if you launch from there), then relaunch. While you hold Space the status line shows a live microphone meter; if it stays empty the Mac is not sending audio to the app.
+
+**Log file.** Everything the app does is written to `data/aurelium.log` inside the AURELIUM folder. If something misbehaves, send me the last 50 lines of that file:
+
+```
+tail -50 data/aurelium.log
+```
 
 ### Testing Phase 2
 

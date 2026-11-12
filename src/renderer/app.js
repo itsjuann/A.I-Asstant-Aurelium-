@@ -96,6 +96,8 @@ api.onReady((r) => { readyLine = `BRAIN ${r.brain} · VOICE ${r.voice} · EARS $
 // ---------------- Voice loop ----------------
 const mic = new Mic();
 let recording = false;
+let micPeak = 0;
+let recordStart = 0;
 let pipelineDone = true;
 let currentRun = null;
 let audioChunks = 0;
@@ -120,17 +122,25 @@ async function startRecording() {
   try { await mic.init(); } catch (err) { addTranscript('system', `Microphone unavailable: ${err.message}`); return; }
   if (!player.idle) { player.stop(); api.interrupt(); }   // barge-in
   pipelineDone = true;
-  recording = true; mic.start(); setState('listening');
-  setVoiceStatus('LISTENING… release to send');
+  recording = true; micPeak = 0; recordStart = performance.now(); mic.start(); setState('listening');
+  setVoiceStatus('LISTENING… release to send', true);
 }
 function stopRecording() {
   if (!recording) return;
   recording = false;
   const samples = mic.stop();
+  const secs = ((performance.now() - recordStart) / 1000).toFixed(1);
   if (samples.length < 16000 * 0.3) { setState('idle'); setVoiceStatus('Too short. Hold the key while you speak.'); return; }
-  setState('thinking'); setVoiceStatus('Transcribing…');
+  if (micPeak < 0.002) {
+    setState('idle');
+    const msg = `Microphone captured ${secs}s of pure silence. macOS is blocking the mic for this app: System Settings > Privacy & Security > Microphone, switch on Electron (or Terminal), then relaunch.`;
+    setVoiceStatus(msg, true); addTranscript('system', msg);
+    return;
+  }
+  setState('thinking'); setVoiceStatus(`Sent ${secs}s of audio (mic peak ${micPeak.toFixed(2)}). Transcribing…`);
   api.sendUtterance(samples);
 }
+const meter = (lvl) => { const n = Math.min(12, Math.round(lvl * 60)); return '▮'.repeat(n) + '▯'.repeat(12 - n); };
 function togglePushToTalk() { recording ? stopRecording() : startRecording(); }
 api.onPushToTalk(() => togglePushToTalk());
 
@@ -195,6 +205,7 @@ function frame() {
     player.tick();
   } else if (entity.state === 'listening') {
     entity.setLevel(Math.min(1, mic.level * 6));
+    if (recording) { micPeak = Math.max(micPeak, mic.level); voiceStatus.textContent = `LISTENING ${meter(mic.level)} release to send`; }
   } else {
     entity.setLevel(0);
   }

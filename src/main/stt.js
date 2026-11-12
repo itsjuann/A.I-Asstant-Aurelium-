@@ -69,7 +69,7 @@ async function transcribeElevenLabs(samples) {
   form.append('language_code', 'en');
   form.append('file', new Blob([floatTo16BitWav(samples)], { type: 'audio/wav' }), 'speech.wav');
   const res = await fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': config.elevenKey }, body: form });
-  if (!res.ok) throw new Error(`ElevenLabs STT ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(await require('./tts').explainElevenLabsError(res));
   return ((await res.json()).text || '').trim();
 }
 

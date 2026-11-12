@@ -147,6 +147,8 @@ class Brain {
 
 // Translate SDK errors into one plain sentence for the HUD and the voice.
 function describeError(err) {
+  const msg = (err && err.message) || '';
+  if (/credit balance|billing|insufficient/i.test(msg)) return 'Anthropic says the account has no credit left. Add credit at console.anthropic.com under Billing, then try again.';
   if (err instanceof Anthropic.AuthenticationError) return 'My Anthropic key was rejected. Check ANTHROPIC_API_KEY in the dot env file.';
   if (err instanceof Anthropic.RateLimitError) return 'Anthropic is rate limiting us. Give it a moment and try again.';
   if (err instanceof Anthropic.APIConnectionError) return 'I cannot reach Anthropic. Check the internet connection.';

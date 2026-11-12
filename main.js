@@ -12,6 +12,18 @@ const { Pipeline } = require('./src/main/pipeline');
 
 const ROOT = __dirname;
 const TASKS_FILE = path.join(ROOT, 'data', 'tasks.json');
+const LOG_FILE = path.join(ROOT, 'data', 'aurelium.log');
+
+// ---------- Logging: everything also goes to data/aurelium.log so Juan can send it over ----------
+try { fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true }); if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > 2 * 1024 * 1024) fs.unlinkSync(LOG_FILE); } catch (_) {}
+function logLine(level, args) {
+  const text = args.map(a => typeof a === 'string' ? a : (a && a.stack) || (() => { try { return JSON.stringify(a); } catch (_) { return String(a); } })()).join(' ');
+  try { fs.appendFileSync(LOG_FILE, `${new Date().toISOString()} [${level}] ${text}\n`); } catch (_) {}
+}
+for (const level of ['log', 'warn', 'error']) { const orig = console[level].bind(console); console[level] = (...a) => { orig(...a); logLine(level, a); }; }
+process.on('unhandledRejection', (err) => { console.error('unhandledRejection', err); if (pipeline) pipeline.status(`Internal error: ${err && err.message ? err.message : err}`); });
+process.on('uncaughtException', (err) => { console.error('uncaughtException', err); });
+console.log(`[AURELIUM] ---- launch ${new Date().toString()} ----`);
 const HEADLESS_TEST = !!process.env.AURELIUM_HEADLESS_TEST;   // used by automated checks
 const WINDOWED = !!process.env.AURELIUM_WINDOWED || HEADLESS_TEST;
 
@@ -48,6 +60,14 @@ async function ensureMicrophone() {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media' || permission === 'audioCapture'));
 }
 
+function reportMicrophoneStatus() {
+  if (process.platform !== 'darwin' || !pipeline) return;
+  let status = 'unknown';
+  try { status = systemPreferences.getMediaAccessStatus('microphone'); } catch (_) {}
+  if (status === 'granted') pipeline.status('Microphone: allowed by macOS.');
+  else pipeline.status(`Microphone: ${status}. macOS has not allowed it. Open System Settings > Privacy & Security > Microphone, switch on Electron (or Terminal if you launched from there), then relaunch AURELIUM.`);
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   win = new BrowserWindow({
@@ -76,7 +96,8 @@ function createWindow() {
 
   const info = describeOS();
   pipeline = new Pipeline({ win, osName: `${info.name} ${info.version}`.trim() });
-  win.webContents.on('did-finish-load', () => pipeline.boot());
+  win.webContents.on('did-finish-load', () => { pipeline.boot(); reportMicrophoneStatus(); });
+  win.webContents.on('console-message', (_e, level, message) => { if (level >= 2) console.warn('[renderer]', message); });
 
   if (HEADLESS_TEST) runHeadlessTest();
 }
