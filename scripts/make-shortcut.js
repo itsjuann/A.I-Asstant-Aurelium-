@@ -45,7 +45,16 @@ function macos() {
   fs.mkdirSync(macos, { recursive: true });
   fs.mkdirSync(res, { recursive: true });
   const launcher = path.join(macos, 'AURELIUM');
-  fs.writeFileSync(launcher, `#!/bin/bash\n# Opens Terminal-free: run the launcher script in the project folder.\nexport PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"\ncd ${JSON.stringify(ROOT)}\nexec ./start-aurelium.sh\n`);
+  // Launch Electron.app directly: no Terminal, no Node on the PATH needed once dependencies are installed.
+  fs.writeFileSync(launcher, `#!/bin/bash
+ROOT=${JSON.stringify(ROOT)}
+APP="$ROOT/node_modules/electron/dist/Electron.app"
+if [ -d "$APP" ]; then
+  exec open -n -a "$APP" --args "$ROOT"
+fi
+# Dependencies missing: fall back to the Terminal installer.
+exec open -a Terminal "$ROOT/start-aurelium.sh"
+`);
   fs.chmodSync(launcher, 0o755);
   fs.writeFileSync(path.join(appDir, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

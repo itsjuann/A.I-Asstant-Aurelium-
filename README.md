@@ -43,6 +43,11 @@ project folder run:
 npm start
 ```
 
+On a Mac, `npm start` hands off to the app and returns straight away, so you
+can close the Terminal window. The desktop shortcut launches Motion directly
+with no Terminal at all. If you created the shortcut before Phase 4, refresh it
+once with `npm run shortcut`.
+
 Backup launchers if you ever need them: `start-aurelium.cmd` (Windows) or
 `start-aurelium.sh` (macOS and Linux) in the project folder. Both install the
 dependencies on first run.

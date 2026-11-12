@@ -11,3 +11,4 @@ if [ ! -d node_modules/electron ]; then
   npm install
 fi
 npm start
+# On macOS, npm start hands off to the app and returns; this window can be closed.

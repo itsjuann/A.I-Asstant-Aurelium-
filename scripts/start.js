@@ -18,7 +18,8 @@ const macApp = path.join(ROOT, 'node_modules', 'electron', 'dist', 'Electron.app
 if (process.platform === 'darwin' && !DEV && fs.existsSync(macApp)) {
   console.log('Launching AURELIUM. If macOS asks whether "Electron" may use the microphone, click Allow.');
   console.log(`Log file: ${path.join(ROOT, 'data', 'aurelium.log')}`);
-  run('open', ['-W', '-n', '-a', macApp, '--args', ROOT]);
+  console.log('You can close this Terminal window; Motion keeps running on her own.');
+  run('open', ['-n', '-a', macApp, '--args', ROOT]);   // no -W: hand off and return
 } else {
   const electron = require('electron');   // resolves to the binary path
   run(electron, [ROOT, ...process.argv.slice(2).filter(a => a !== '--dev')]);

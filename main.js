@@ -158,6 +158,7 @@ app.whenReady().then(async () => {
   const info = describeOS();
   console.log(`[AURELIUM] Detected ${info.name} ${info.version} (${info.arch}), ${info.cpuModel}, ${info.ramGB} GB RAM`);
   await ensureMicrophone();
+  if (process.platform === 'darwin' && app.dock) { try { app.dock.setIcon(path.join(ROOT, 'assets', 'icon.png')); } catch (_) {} }
   createWindow();
 
   globalShortcut.register('CommandOrControl+Q', () => app.quit());
