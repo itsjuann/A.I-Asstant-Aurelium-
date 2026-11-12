@@ -39,8 +39,24 @@ async function checkElevenLabs() {
     const { synthesize } = require('../src/main/tts');
     const buf = await synthesize('Systems check complete.');
     ok(`Text-to-speech works (${(buf.length / 1024).toFixed(0)} KB of audio in model ${config.elevenModel})`);
+    await playThroughSpeakers(buf);
     return buf;
   } catch (err) { bad(`ElevenLabs error: ${err.message}`); return false; }
+}
+
+// Plays a clip with the operating system's own player so we know the speakers work, independent of the app.
+async function playThroughSpeakers(buf) {
+  const fs = require('fs'); const os = require('os'); const { execFileSync } = require('child_process');
+  const file = path.join(os.tmpdir(), 'aurelium-soundcheck.mp3');
+  fs.writeFileSync(file, buf);
+  const players = process.platform === 'darwin' ? [['afplay', [file]]]
+    : process.platform === 'win32' ? [['powershell', ['-c', `(New-Object Media.SoundPlayer).PlaySync()`]]]
+    : [['paplay', [file]], ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', file]]];
+  for (const [cmd, args] of players) {
+    try { info('Playing a sound check through your speakers now...'); execFileSync(cmd, args, { stdio: 'ignore', timeout: 15000 }); ok('Sound check played. If you heard nothing, check the output device and volume in System Settings > Sound.'); return; }
+    catch (_) { /* try next */ }
+  }
+  info(`Could not auto-play. Open this file to hear the voice: ${file}`);
 }
 
 async function checkSTT(sampleMp3) {

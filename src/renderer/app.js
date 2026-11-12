@@ -104,9 +104,14 @@ let wakeOn = false;
 const player = new Player({
   onStart: () => { window.__aurelium_liveAudio = true; setState('speaking'); },
   onDrain: () => { window.__aurelium_liveAudio = false; if (pipelineDone && !recording) setState(wakeOn ? 'idle' : 'idle'); },
-  onLevel: (lvl) => { if (entity.state === 'speaking') entity.setLevel(lvl); }
+  onLevel: (lvl) => { if (entity.state === 'speaking') entity.setLevel(lvl); },
+  onError: (msg) => addTranscript('system', msg)
 });
-api.onAudio(({ runId, data }) => { audioChunks++; currentRun = runId; pipelineDone = false; player.enqueue(runId, data); });
+api.onAudio(({ runId, data, text }) => {
+  audioChunks++; currentRun = runId; pipelineDone = false;
+  setVoiceStatus(`Audio received: ${(data.length / 1024).toFixed(0)} KB for "${(text || '').slice(0, 40)}"`);
+  player.enqueue(runId, data);
+});
 api.onPipelineDone(({ runId }) => { if (runId === currentRun || currentRun === null) { pipelineDone = true; if (player.idle && !recording) setState('idle'); } });
 api.onState(({ name }) => { if (name === 'thinking' && !recording) setState('thinking'); else if (name === 'idle' && player.idle && !recording) setState('idle'); });
 
@@ -171,6 +176,8 @@ window.addEventListener('keydown', (e) => {
     case 'd': case 'D': toggleDemo(); break;
     case 'w': case 'W': toggleWake(); break;
     case 'r': case 'R': api.resetConversation(); break;
+    case 'v': case 'V': api.voiceTest(); break;
+    case 'b': case 'B': api.briefing(); break;
     case 'F11': api.toggleFullscreen(); break;
     case 'Escape': if (!player.idle) { player.stop(); api.interrupt(); setState('idle'); } else api.quit(); break;
   }

@@ -8,7 +8,7 @@ It is being built in phases. This README is updated as each phase lands.
 |-------|------------|--------|
 | 1 | The face: full-screen particle entity + HUD | Ready to test |
 | 2 | Voice + brain: push-to-talk, Whisper, Claude, ElevenLabs | Ready to test |
-| 3 | Second brain: Obsidian vault, memory, morning briefing | Not started |
+| 3 | Second brain: Obsidian vault, memory, morning briefing | Ready to test |
 | 4 | Actions: open apps, tasks, email drafts, web search | Not started |
 
 ## What you need on your computer
@@ -61,6 +61,8 @@ Keys while the app is open:
 | `3` | Thinking: swirling orbit |
 | `4` | Speaking: pulses with the voice volume (simulated until Phase 2) |
 | `D` | Demo cycle through all four states, every 4 seconds |
+| `V` | Voice test: she speaks a fixed line so you can check the speakers |
+| `B` | Daily briefing |
 | `F11` | Toggle between full-screen and a window |
 | `Esc` or `Ctrl+Q` (`Cmd+Q` on Mac) | Exit |
 
@@ -120,12 +122,61 @@ macOS will ask for microphone permission the first time. If you ever denied it, 
 
 If something fails, the transcript panel shows the reason in italics. Send me that line.
 
+## Phase 3: the second brain (Obsidian)
+
+### Where the vault is
+
+On first launch AURELIUM looks for an existing Obsidian vault (home folder, Documents, Desktop, iCloud Obsidian folder). If it finds one it uses it and adds the AURELIUM folders alongside your notes. If it finds none it creates a new vault at:
+
+```
+~/AureliumBrain
+```
+
+The transcript panel tells you which happened. To force a particular vault, set `VAULT_PATH=/full/path/to/vault` in `.env`.
+
+**To open it in Obsidian:** install Obsidian from <https://obsidian.md>, open it, click **Open folder as vault**, and choose the `AureliumBrain` folder in your home folder. Notes AURELIUM writes appear there instantly.
+
+### Folder structure
+
+```
+Home.md                 the map of everything
+00 Inbox                unsorted captures
+01 Daily                one note per day (Briefing / Tasks / Notes / Log)
+02 Companies            Aurelium Motion, PeakHive, Eccellenti, Vorynx Lab
+03 Clients & Leads      one note per client or lead
+04 SOPs                 processes
+05 Ideas                one idea per note
+06 People               one note per person
+07 Resources            tools, links, templates
+99 Archive              finished and stale things
+```
+
+Each folder has a starter note explaining what goes there.
+
+### What AURELIUM can do with it
+
+- **Search first.** Before answering anything about your businesses, she searches the vault and reads the matching notes.
+- **"Remember this ..."** files a clean note in the right folder with links to related notes, and logs it in today's daily note.
+- **"Brain dump"** then talk for as long as you like (hold Space the whole time). She splits it into organised notes, adds tasks to today, and tells you what she filed.
+- **Tasks.** "Add a task: ..." goes into today's daily note. Open tasks show on the HUD in the TODAY panel.
+- **Daily briefing.** On the first launch each day she speaks a briefing built from yesterday's note and open tasks, opening with "Good morning, Juan." (afternoon or evening if that's when you launch). Press **B** to hear it again any time.
+- **Safety.** The tools can only create and append. Nothing can delete or overwrite a note, and she asks before adding to an existing one.
+
+### Testing Phase 3
+
+1. `git pull`, then `npm start`. Watch the transcript for the "Second brain" line and note the path.
+2. Say: "Remember this: Bright Smile Dental is a new lead for Aurelium Motion, the owner wants a demo on Thursday." Then open the vault in Obsidian and look in `03 Clients & Leads`.
+3. Say: "What do we know about Bright Smile Dental?" She should search and answer from the note.
+4. Say: "Add a task: send Bright Smile the proposal." It appears in today's daily note and in the TODAY panel.
+5. Say "Brain dump" and talk for a minute about anything on your mind. Check the notes she filed.
+6. Press **B** for the briefing.
+
 ## Project layout (plain English)
 
 - `main.js` - the Electron "backstage": opens the window, reads CPU and memory, talks to the page.
 - `preload.js` - the narrow bridge between backstage and the page.
 - `src/renderer/` - the page itself: `index.html` (layout), `style.css` (look), `app.js` (HUD logic), `entity.js` (the particle entity, Three.js).
-- `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how AURELIUM speaks), `brain.js` (Claude, streaming), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `pipeline.js` (ties it together).
+- `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how AURELIUM speaks), `brain.js` (Claude, streaming, tool calls), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `vault.js` (the Obsidian second brain), `tools.js` (what the brain can do with the vault), `pipeline.js` (ties it together).
 - `scripts/` - `detect-os.js` (which OS and hardware), `setup.js` (first-time setup), `doctor.js` (checks keys and services), `make-shortcut.js` (desktop shortcut), `make-icon.js` (generates the app icon).
 - `data/tasks.json` - placeholder task list for the HUD.
 - `.env.example` - template for the API keys and settings. Copy to `.env` (setup does this).

@@ -153,3 +153,4 @@ vite.config.ts.timestamp-*
 
 # Local speech model cache
 models/
+data/state.json

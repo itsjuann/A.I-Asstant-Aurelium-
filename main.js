@@ -112,7 +112,15 @@ async function runHeadlessTest() {
 // ---------- IPC ----------
 ipcMain.handle('system:info', () => describeOS());
 ipcMain.handle('system:stats', () => ({ cpu: cpuPercent(), memTotal: os.totalmem(), memFree: os.freemem(), uptime: os.uptime(), loadavg: os.loadavg() }));
-ipcMain.handle('tasks:today', () => readTasks());
+ipcMain.handle('tasks:today', () => {
+  if (pipeline && pipeline.vault) {
+    const all = pipeline.vault.openTasks(7);
+    const today = new Date().toISOString().slice(0, 10);
+    const tasks = all.filter(t => !t.done || t.date === today);
+    if (tasks.length) return tasks;
+  }
+  return readTasks();
+});
 ipcMain.on('app:quit', () => app.quit());
 ipcMain.on('app:toggle-fullscreen', () => { if (win) win.setFullScreen(!win.isFullScreen()); });
 
@@ -122,6 +130,8 @@ ipcMain.handle('voice:wake-check', (_e, samples) => pipeline ? pipeline.handleWa
 ipcMain.on('brain:text', (_e, text) => pipeline && pipeline.handleText(String(text || '').trim()));
 ipcMain.on('voice:interrupt', () => pipeline && pipeline.cancel());
 ipcMain.on('brain:reset', () => pipeline && pipeline.resetConversation());
+ipcMain.on('voice:test', () => pipeline && pipeline.say(`Voice check, ${config.userName}. If you can hear this, the speakers and the voice link are working.`));
+ipcMain.on('brain:briefing', () => pipeline && pipeline.briefing(true));
 
 app.whenReady().then(async () => {
   const info = describeOS();

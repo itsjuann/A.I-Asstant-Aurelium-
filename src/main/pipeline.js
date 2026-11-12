@@ -4,13 +4,24 @@ const { config, readiness } = require('./config');
 const { Brain, describeError } = require('./brain');
 const { SpeechQueue, synthesize } = require('./tts');
 const { SpeechToText } = require('./stt');
+const { openVault, dateKey } = require('./vault');
+const { buildTools } = require('./tools');
+const fs = require('fs');
+const path = require('path');
+
+const STATE_FILE = path.join(config.root, 'data', 'state.json');
+const readState = () => { try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch (_) { return {}; } };
+const writeState = (patch) => { const s = { ...readState(), ...patch }; fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true }); fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2)); };
 
 const WAKE_VARIANTS = ['aurelium', 'aurelian', 'orelium', 'aurelio', 'aurelia', 'a relium', 'oralium', 'aurillium'];
 
 class Pipeline {
   constructor({ win, osName }) {
     this.win = win;
-    this.brain = new Brain({ osName });
+    this.vaultInfo = openVault({ preferred: config.vaultPath, onStatus: (t) => console.log('[AURELIUM]', t) });
+    this.vault = this.vaultInfo.vault;
+    this.tools = buildTools({ vault: this.vault, log: (a, b) => console.log('[AURELIUM]', a, b) });
+    this.brain = new Brain({ osName, tools: this.tools, vaultRoot: this.vaultInfo.root, onToolUse: (name) => this.status(this._toolLabel(name)) });
     this.stt = new SpeechToText({ onStatus: (t) => this.status(t) });
     this.runId = 0;
     this.current = null;   // { id, abort, queue }
@@ -25,7 +36,37 @@ class Pipeline {
     const r = readiness();
     this.send('voice:ready', r);
     this.status(`Brain: ${r.brain}. Voice: ${r.voice}. Ears: ${r.stt}. Hotkey: ${r.hotkey}. Wake word: ${r.wakeWord}.`);
+    const vi = this.vaultInfo;
+    this.status(vi.existed ? `Second brain: ${vi.root}` : `Second brain created at ${vi.root}. In Obsidian choose "Open folder as vault" and pick it.`);
+    this.vault.ensureDaily();
     this.stt.warmUp();
+    if (!process.env.AURELIUM_HEADLESS_TEST) setTimeout(() => this.briefing(false), 2500);
+  }
+
+  _toolLabel(name) {
+    return { search_vault: 'Searching the vault…', read_note: 'Reading a note…', list_notes: 'Listing notes…', create_note: 'Filing a note…',
+      append_note: 'Adding to a note…', append_daily: 'Updating today\'s daily note…', link_notes: 'Linking notes…', open_tasks: 'Checking open tasks…' }[name] || `Using ${name}…`;
+  }
+
+  // First launch of the day: spoken briefing from yesterday's note and open tasks.
+  async briefing(force) {
+    const today = dateKey();
+    if (!force && readState().lastBriefing === today) return;
+    if (!this.brain.ready) return;
+    writeState({ lastBriefing: today });
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? `Good morning, ${config.userName}.` : hour < 18 ? `Good afternoon, ${config.userName}.` : `Good evening, ${config.userName}.`;
+    const yesterday = this.vault.yesterdayNote();
+    const open = this.vault.openTasks(7).filter(t => !t.done);
+    const prompt = `[Daily briefing request from the app, not spoken by ${config.userName}.]
+Deliver the day's briefing aloud. Open with exactly: "${greeting}" Then, in briefing style and under 120 words: what happened yesterday (from the note below), the open tasks that matter most, and one suggested first move. If there is nothing on file, say so in one line and ask what today is about. Finally call append_daily with section "Briefing" and a two-line written summary.
+
+Yesterday's daily note:
+${yesterday || '(none)'}
+
+Open tasks (last 7 days):
+${open.length ? open.map(t => `- ${t.text} (${t.date})`).join('\n') : '(none)'}`;
+    await this.handleText(prompt, { display: `Daily briefing requested.` });
   }
 
   cancel() {
@@ -49,7 +90,7 @@ class Pipeline {
   }
 
   // A full turn from text (typed or transcribed).
-  async handleText(text) {
+  async handleText(text, { display } = {}) {
     this.cancel();
     const id = ++this.runId;
     const abort = new AbortController();
@@ -59,7 +100,7 @@ class Pipeline {
     });
     this.current = { id, abort, queue };
     this.busy = true;
-    this.send('transcript', { role: 'you', text });
+    this.send('transcript', display ? { role: 'system', text: display } : { role: 'you', text });
     this.state('thinking');
     this.send('transcript:start', { id, role: 'aurelium' });
     try {

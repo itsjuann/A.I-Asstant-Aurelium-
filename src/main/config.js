@@ -32,6 +32,7 @@ const config = {
   wakeWord: bool('WAKE_WORD', false),
   wakeWordText: str('WAKE_WORD_TEXT', 'aurelium').toLowerCase(),
   pttHotkey: str('PTT_HOTKEY', 'Alt+Space'),
+  vaultPath: str('VAULT_PATH'),
   mockBrain: bool('AURELIUM_MOCK_BRAIN', false)
 };
 

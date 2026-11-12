@@ -78,8 +78,8 @@ export class SegmentListener {
 
 // Plays MP3 chunks back to back and reports loudness for the entity.
 export class Player {
-  constructor({ onStart, onDrain, onLevel }) {
-    this.onStart = onStart || (() => {}); this.onDrain = onDrain || (() => {}); this.onLevel = onLevel || (() => {});
+  constructor({ onStart, onDrain, onLevel, onError }) {
+    this.onStart = onStart || (() => {}); this.onDrain = onDrain || (() => {}); this.onLevel = onLevel || (() => {}); this.onError = onError || (() => {});
     this.ctx = null; this.analyser = null; this.nextTime = 0; this.playing = 0; this.decoding = 0; this.runId = null; this.started = false;
     this.data = null; this.sources = new Set();
   }
@@ -107,10 +107,11 @@ export class Player {
     try {
       const copy = bytes.slice(0).buffer ? bytes.slice(0).buffer : bytes;
       audio = await this.ctx.decodeAudioData(copy);
-    } catch (err) { console.warn('decode failed', err); this.decoding--; return; }
+    } catch (err) { this.decoding--; this.onError(`Could not decode audio (${err.message}). Trying the simple player.`); this._fallbackPlay(runId, bytes); return; }
     this.decoding--;
     if (this.runId !== runId) return;
-    if (this.ctx.state !== 'running') await this.ctx.resume();
+    if (this.ctx.state !== 'running') { try { await this.ctx.resume(); } catch (err) { this.onError(`Audio output blocked: ${err.message}`); } }
+    if (this.ctx.state !== 'running') this.onError(`Audio context is "${this.ctx.state}", not running. Output device may be missing.`);
     const src = this.ctx.createBufferSource();
     src.buffer = audio; src.connect(this.analyser);
     const now = this.ctx.currentTime;
@@ -119,6 +120,18 @@ export class Player {
     this.playing++; this.sources.add(src);
     if (!this.started) { this.started = true; this.onStart(); }
     src.onended = () => { this.sources.delete(src); this.playing--; if (this.idle) { this.started = false; this.onDrain(); } };
+  }
+  // Last-resort playback with a plain <audio> element (no level metering).
+  _fallbackPlay(runId, bytes) {
+    try {
+      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+      const el = new Audio(URL.createObjectURL(blob));
+      this.playing++;
+      if (!this.started) { this.started = true; this.onStart(); }
+      el.onended = () => { this.playing--; URL.revokeObjectURL(el.src); if (this.idle) { this.started = false; this.onDrain(); } };
+      el.onerror = () => { this.playing--; this.onError('Simple player failed too. Check System Settings > Sound > Output.'); if (this.idle) { this.started = false; this.onDrain(); } };
+      el.play().catch((err) => this.onError(`Playback refused: ${err.message}`));
+    } catch (err) { this.onError(`Fallback player error: ${err.message}`); }
   }
   stop() {
     for (const s of this.sources) { try { s.onended = null; s.stop(); } catch (_) {} }
