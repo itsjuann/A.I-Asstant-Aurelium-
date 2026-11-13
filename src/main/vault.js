@@ -7,7 +7,7 @@ const os = require('os');
 
 const FOLDERS = ['00 Inbox', '01 Daily', '02 Companies', '03 Clients & Leads', '04 SOPs', '05 Ideas', '06 People', '07 Resources', '99 Archive'];
 const COMPANIES = {
-  'Aurelium Motion': 'AI growth agency for local businesses (aureliummotion.com). Describe the full offer here: what it sells, who it serves, how it works. Motion reads this note to understand the business.',
+  'Aurelium Motion': 'AI-powered growth and marketing agency (aureliummotion.com). Full profile below.',
   'PeakHive': 'Shopify store, home goods.',
   'Eccellenti': 'Streetwear brand.',
   'Vorynx Lab': 'SaaS for personal trainers.'
@@ -78,6 +78,42 @@ Welcome, Juan. This vault is AURELIUM's memory. She searches it before answering
   return t;
 }
 
+// Company profiles that Motion must know. Appended (never overwritten) to the company notes.
+const PROFILE_MARK = '## About (from aureliummotion.com)';
+const PROFILES = {
+  'Aurelium Motion': `${PROFILE_MARK}
+
+Tagline: "Answer. Capture. Grow." Also: "AI Powered. Creative Driven. Always Moving."
+
+Aurelium Motion is an AI-powered growth and marketing agency. It builds the software a business runs on and the systems that bring customers in: AI receptionists, custom CRMs and company SaaS, websites and apps, SEO, Google Maps and AI-search optimisation, reputation management, conversion optimisation, audits and growth consulting. One team, one system, more booked jobs. It is NOT just an AI receptionist company; the receptionist is one of eight services.
+
+Who it serves: businesses of all types, with a focus on local and service businesses (bars and restaurants, cleaning services, HVAC and home services), plus ecommerce brands, coaches, consultants, fitness studios, personal brands.
+
+The eight services:
+1. AI Receptionist: answers every call 24/7, handles common questions, captures caller details, sends every lead into the CRM.
+2. Custom CRM & Company SaaS: software built around how the company actually runs (leads, jobs, follow-up, automations, receptionist in one owned system). Builds tools that do not exist yet.
+3. Get Found: SEO, Google Maps (MEO) and AI search (AEO) so customers find you on Google, on the map and in answer engines like ChatGPT. Backed by content and email.
+4. Google Reviews & Reputation: automated follow-up for 5-star reviews, review response strategy, reputation monitoring.
+5. Website & App Development: Shopify, Next.js, WordPress or Webflow. Fast, mobile-first, SEO-ready, built to convert.
+6. Conversion Rate Optimisation: heatmaps, A/B testing, AI analysis to fix leaks.
+7. Website Audits: conversion leaks, SEO gaps, action plan. A free instant site audit is the main lead magnet.
+8. Business Growth Consulting: marketing systems, brand positioning, revenue roadmaps.
+
+Pricing (month-to-month retainers, "we talk numbers on the call"):
+- Tier 1 Essentials, from $500/month: website audit with action plan, Google Reviews and reputation management.
+- Tier 2 Growth Engine, from $1,500/month (most popular): Essentials plus custom website or app, CRO, and the full Get Found strategy (SEO, Maps, content, email, social).
+- Tier 3 AI Scale System, from $3,000/month: Growth Engine plus AI receptionist, custom AI automations, custom CRM, hands-on growth consulting.
+- Tier 4 Elite Partner, custom pricing, limited intake: all eight services, dedicated growth team, creative direction and motion graphics, priority access.
+- Build Your Own: pick any services, priced on the call.
+- Digital resources (instant PDF downloads): The AI Prompt Pack $15, The Canva Playbook $12, The Starter Bundle $20.
+
+Process: 1) Discovery & Audit (site and phone flow, AI competitor analysis, find where calls and leads leak). 2) Strategy & Brand Direction (positioning, audience, messaging, content plan). 3) Design, Build & Optimise (receptionist, CRM and website built in parallel, SEO baked in). 4) Launch, Measure & Scale (walkthrough call, track calls answered, leads, traffic, conversions, revenue; compound monthly).
+
+AI stack used internally: Claude (strategy, copy, content, emails, brand voice), ChatGPT/GPT-4o (research, SEO, ideation), Midjourney, Runway ML, Figma + AI plugins, Surfer SEO, Hotjar/Clarity, Google Analytics 4, Zapier/Make.
+
+Main calls to action: Book Free Audit, View Plans, Scan My Site (instant score for performance, SEO, accessibility, best practices; full report by email within 24 hours).`
+};
+
 function dailyTemplate(d = new Date()) {
   return `# ${longDate(d)}\n\n## Briefing\n\n## Tasks\n\n## Notes\n\n## Log\n`;
 }
@@ -106,6 +142,13 @@ class Vault {
     for (const [rel, body] of Object.entries(templates())) {
       const abs = this.resolve(rel);
       if (!fs.existsSync(abs)) { fs.mkdirSync(path.dirname(abs), { recursive: true }); fs.writeFileSync(abs, body); created.push(rel); }
+    }
+    // Append the full company profiles to notes that do not have them yet (append-only, never overwrites).
+    for (const [name, profile] of Object.entries(PROFILES)) {
+      const rel = `02 Companies/${name}`;
+      try {
+        if (this.exists(rel) && !this.readNote(rel).includes(PROFILE_MARK)) { this.appendNote(rel, profile); created.push(`${rel} (profile added)`); }
+      } catch (_) {}
     }
     this._index = null;
     return created;
@@ -247,7 +290,7 @@ class Vault {
     return tasks;
   }
   // Short summaries of each company note, so the brain always knows the current description.
-  companySummaries(maxChars = 900) {
+  companySummaries(maxChars = 2600) {
     const out = [];
     for (const rel of this.listNotes('02 Companies')) {
       try {

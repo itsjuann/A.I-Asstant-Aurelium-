@@ -50,13 +50,16 @@ function macos() {
 
 // A real app: a copy of Electron.app renamed to AURELIUM, with our icon, that loads this project.
 // The Dock, the menu bar and the microphone prompt then all say AURELIUM.
-function macosRealBundle(appDir, electronApp) {
+function macosRealBundle(finalDir, electronApp) {
   const plistBuddy = '/usr/libexec/PlistBuddy';
-  console.log('Step 1/5: removing the old desktop icon...');
-  fs.rmSync(appDir, { recursive: true, force: true });
-  console.log('Step 2/5: copying the app (about 300 MB, this can take up to a minute, please wait)...');
-  execFileSync('ditto', [electronApp, appDir], { stdio: 'ignore' });
-  console.log('Step 3/5: setting the AURELIUM name and icon...');
+  const staging = path.join(os.homedir(), 'Library', 'Application Support', 'AURELIUM', 'build');
+  const appDir = path.join(staging, 'AURELIUM.app');
+  console.log('Step 1/6: preparing a build folder...');
+  fs.rmSync(staging, { recursive: true, force: true });
+  fs.mkdirSync(staging, { recursive: true });
+  console.log('Step 2/6: copying the app (about 300 MB, this can take up to a minute, please wait)...');
+  execFileSync('ditto', [electronApp, appDir], { stdio: 'inherit' });
+  console.log('Step 3/6: setting the AURELIUM name and icon...');
   const contents = path.join(appDir, 'Contents');
   const res = path.join(contents, 'Resources');
   const plist = path.join(contents, 'Info.plist');
@@ -83,19 +86,32 @@ function macosRealBundle(appDir, electronApp) {
   set('CFBundleIdentifier', 'com.aureliummotion.aurelium');
   set('CFBundleIconFile', iconName);
   set('NSMicrophoneUsageDescription', 'AURELIUM needs the microphone so Motion can hear you.');
-  console.log('Step 4/5: linking the app to this project folder...');
+  console.log('Step 4/6: linking the app to this project folder...');
   // The app Electron loads: a two-line shim pointing at this project folder.
   const appFolder = path.join(res, 'app');
   fs.mkdirSync(appFolder, { recursive: true });
   fs.writeFileSync(path.join(appFolder, 'package.json'), JSON.stringify({ name: 'aurelium', productName: 'AURELIUM', version: '1.0.0', main: 'index.js' }, null, 2));
   fs.writeFileSync(path.join(appFolder, 'index.js'), `// AURELIUM launcher shim: runs the project at the path below.\nrequire(${JSON.stringify(path.join(ROOT, 'main.js'))});\n`);
-  console.log('Step 5/5: signing the app so macOS accepts it...');
+  console.log('Step 5/6: signing the app so macOS accepts it...');
   // Re-sign locally so macOS (Apple Silicon in particular) accepts the modified bundle.
   try { execFileSync('codesign', ['--force', '--deep', '--sign', '-', appDir], { stdio: 'ignore' }); } catch (err) { console.warn(`  (signing skipped: ${err.message})`); }
   try { execFileSync('xattr', ['-dr', 'com.apple.quarantine', appDir], { stdio: 'ignore' }); } catch (_) {}
   if (!fs.existsSync(path.join(appDir, 'Contents', 'MacOS'))) throw new Error('bundle copy incomplete');
-  try { execFileSync('open', ['-R', appDir], { stdio: 'ignore' }); } catch (_) {}   // reveal it in Finder
-  return appDir;
+  console.log('Step 6/6: placing AURELIUM on the Desktop and in ~/Applications...');
+  fs.rmSync(finalDir, { recursive: true, force: true });
+  execFileSync('ditto', [appDir, finalDir], { stdio: 'inherit' });
+  try {
+    const appsDir = path.join(os.homedir(), 'Applications');
+    fs.mkdirSync(appsDir, { recursive: true });
+    const appsCopy = path.join(appsDir, 'AURELIUM.app');
+    fs.rmSync(appsCopy, { recursive: true, force: true });
+    execFileSync('ditto', [appDir, appsCopy], { stdio: 'ignore' });
+    console.log(`  Also installed at ${appsCopy} (shows up in Launchpad / Spotlight).`);
+  } catch (err) { console.warn(`  (could not copy to ~/Applications: ${err.message})`); }
+  fs.rmSync(staging, { recursive: true, force: true });
+  try { console.log('  Desktop now contains: ' + fs.readdirSync(path.dirname(finalDir)).filter(n => !n.startsWith('.')).join(', ')); } catch (_) {}
+  try { execFileSync('open', ['-R', finalDir], { stdio: 'ignore' }); } catch (_) {}   // reveal it in Finder
+  return finalDir;
 }
 
 // Fallback: a tiny launcher bundle that opens Electron.app with this project.
