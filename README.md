@@ -114,7 +114,8 @@ On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** 
 |-----|-----------|
 | Hold to talk | Hold **Space**, speak, release. |
 | From any app | Press **Option+Space** once to start, again to stop. (Change with `PTT_HOTKEY` in `.env`.) |
-| Wake word | Press **W** in the app, or set `WAKE_WORD=on`. Then say "Motion, ..." followed by your request. Say just "Motion" and she answers "Yes, Juan?" and waits. |
+| Wake word | On by default (`WAKE_WORD=on`, or press **W**). Say "Motion, ..." followed by your request. Say just "Motion" and she answers "Yes, Juan?" and waits. |
+| Conversation mode | After every answer she keeps listening for 12 seconds (`FOLLOW_UP_SECONDS`). Anything you say in that window goes straight to her, no wake word. The status line shows the countdown. When it closes, say "Motion" again. If she hears something clearly not meant for her, she stays quiet. |
 | Typing | Press **Enter**, type, press Enter. Useful without a microphone. |
 | Interrupt | Press Space (or the hotkey) while she is speaking to cut in. Esc stops playback. |
 | Start over | Press **R** to clear the conversation. |

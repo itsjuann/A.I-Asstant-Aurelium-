@@ -31,7 +31,8 @@ const config = {
   sttMode: str('STT_MODE', 'auto').toLowerCase(),         // auto | local | elevenlabs | openai
   whisperModel: str('WHISPER_MODEL', 'Xenova/whisper-base.en'),
   modelCacheDir: str('MODEL_CACHE_DIR', path.join(ROOT, 'models')),
-  wakeWord: bool('WAKE_WORD', false),
+  wakeWord: bool('WAKE_WORD', true),
+  followUpSeconds: parseInt(str('FOLLOW_UP_SECONDS', '12'), 10) || 12,
   wakeWordText: str('WAKE_WORD_TEXT', str('ASSISTANT_NAME', 'Motion')).toLowerCase(),
   pttHotkey: str('PTT_HOTKEY', 'Alt+Space'),
   vaultPath: str('VAULT_PATH'),
@@ -63,6 +64,8 @@ function readiness() {
     wakeWord: config.wakeWord ? `on ("${config.wakeWordText}")` : 'off',
     hotkey: config.pttHotkey,
     assistantName: config.assistantName,
+    followUpSeconds: config.followUpSeconds,
+    wakeOn: config.wakeWord,
     web: config.webSearch ? 'on' : 'off'
   };
 }

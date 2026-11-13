@@ -111,3 +111,4 @@ html, body {
 }
 .text-input::placeholder { color: var(--text-dim); }
 .wake[hidden], .text-input[hidden] { display: none; }
+.transcript .line.quiet .body { color: var(--text-dim); font-style: italic; }

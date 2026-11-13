@@ -80,6 +80,7 @@ function addTranscript(role, text) {
 api.onTranscript(({ role, text }) => addTranscript(role, text));
 api.onTranscriptStart(({ id, role }) => openLines.set(id, addTranscript(role, '')));
 api.onTranscriptDelta(({ id, text }) => { const l = openLines.get(id); if (l) { l.querySelector('.body').textContent += text; transcript.scrollTop = transcript.scrollHeight; } });
+api.onTranscriptEnd(({ id }) => { const l = openLines.get(id); if (l && /\[silence\]/i.test(l.textContent)) { l.querySelector('.body').textContent = '(stayed quiet: not addressed to her)'; l.classList.add('quiet'); } });
 api.onTranscriptEnd(({ id }) => openLines.delete(id));
 api.onStatus(({ text }) => { addTranscript('system', text); setVoiceStatus(text); });
 
@@ -92,7 +93,13 @@ function setVoiceStatus(text, sticky = false) {
 }
 let readyLine = '';
 let assistantName = 'MOTION';
-api.onReady((r) => { assistantName = (r.assistantName || 'Motion').toUpperCase(); readyLine = `${assistantName} · BRAIN ${r.brain} · VOICE ${r.voice} · EARS ${r.stt} · WEB ${r.web} · WAKE ${r.wakeWord}`; setVoiceStatus(readyLine, true); });
+api.onReady((r) => {
+  assistantName = (r.assistantName || 'Motion').toUpperCase();
+  followUpSeconds = r.followUpSeconds || 12;
+  readyLine = `${assistantName} · BRAIN ${r.brain} · VOICE ${r.voice} · EARS ${r.stt} · WEB ${r.web} · WAKE ${r.wakeWord}`;
+  setVoiceStatus(readyLine, true);
+  if (r.wakeOn && !wakeOn && !window.__aurelium_headless) setTimeout(() => toggleWake(true), 1500);
+});
 
 // ---------------- Voice loop ----------------
 const mic = new Mic();
@@ -103,10 +110,18 @@ let pipelineDone = true;
 let currentRun = null;
 let audioChunks = 0;
 let wakeOn = false;
+let followUpSeconds = 12;
+let conversationUntil = 0;      // while now < this, speech is sent straight to Motion (no wake word needed)
+let speechStartedWhileBusy = false;
+const inConversation = () => performance.now() < conversationUntil;
+function openConversationWindow() {
+  if (!wakeOn) return;
+  conversationUntil = performance.now() + followUpSeconds * 1000;
+}
 
 const player = new Player({
   onStart: () => { window.__aurelium_liveAudio = true; setState('speaking'); },
-  onDrain: () => { window.__aurelium_liveAudio = false; if (pipelineDone && !recording) setState(wakeOn ? 'idle' : 'idle'); },
+  onDrain: () => { window.__aurelium_liveAudio = false; if (pipelineDone && !recording) { setState('idle'); openConversationWindow(); } },
   onLevel: (lvl) => { if (entity.state === 'speaking') entity.setLevel(lvl); },
   onError: (msg) => addTranscript('system', msg)
 });
@@ -115,7 +130,7 @@ api.onAudio(({ runId, data, text }) => {
   setVoiceStatus(`Audio received: ${(data.length / 1024).toFixed(0)} KB for "${(text || '').slice(0, 40)}"`);
   player.enqueue(runId, data);
 });
-api.onPipelineDone(({ runId }) => { if (runId === currentRun || currentRun === null) { pipelineDone = true; if (player.idle && !recording) setState('idle'); } });
+api.onPipelineDone(({ runId }) => { if (runId === currentRun || currentRun === null) { pipelineDone = true; if (player.idle && !recording) { setState('idle'); openConversationWindow(); } } });
 api.onState(({ name }) => { if (name === 'thinking' && !recording) setState('thinking'); else if (name === 'idle' && player.idle && !recording) setState('idle'); });
 
 async function startRecording() {
@@ -145,16 +160,29 @@ const meter = (lvl) => { const n = Math.min(12, Math.round(lvl * 60)); return '�
 function togglePushToTalk() { recording ? stopRecording() : startRecording(); }
 api.onPushToTalk(() => togglePushToTalk());
 
-// Wake word: always-on listener that sends quiet-delimited segments to the main process.
+// Wake word + conversation mode: an always-on listener. Say "Motion ..." to start; for the next
+// few seconds after each answer, anything you say goes straight to her without the wake word.
 const wakeListener = new SegmentListener(mic, {
+  onSpeechStart: () => {
+    speechStartedWhileBusy = recording || !player.idle || !pipelineDone;
+    if (!speechStartedWhileBusy && inConversation()) { setState('listening'); voiceStatus.textContent = 'LISTENING (conversation mode)…'; }
+  },
   onSegment: async (samples) => {
-    if (recording || !player.idle) return;
+    if (recording || speechStartedWhileBusy) return;
+    if (inConversation()) {
+      conversationUntil = 0;
+      setState('thinking'); setVoiceStatus('Transcribing…');
+      pipelineDone = false;
+      api.sendUtterance(samples);
+      return;
+    }
     const res = await api.sendWakeSegment(samples);
-    if (res && res.heard) { setVoiceStatus(res.command ? `Heard: "${res.command}"` : 'Yes?'); }
+    if (res && res.heard) { setVoiceStatus(res.command ? `Heard: "${res.command}"` : 'Yes?'); if (!res.command) { pipelineDone = false; } }
   }
 });
-async function toggleWake() {
-  wakeOn = !wakeOn;
+async function toggleWake(force) {
+  wakeOn = typeof force === 'boolean' ? force : !wakeOn;
+  conversationUntil = 0;
   if (wakeOn) { try { await mic.init(); } catch (err) { wakeOn = false; addTranscript('system', `Microphone unavailable: ${err.message}`); return; } wakeListener.start(); $('wake-indicator').hidden = false; setVoiceStatus(`Wake word on. Say "${assistantName.charAt(0) + assistantName.slice(1).toLowerCase()}" followed by your request.`, true); }
   else { wakeListener.stop(); $('wake-indicator').hidden = true; setVoiceStatus('Wake word off.'); }
 }
@@ -209,6 +237,12 @@ function frame() {
     if (recording) { micPeak = Math.max(micPeak, mic.level); voiceStatus.textContent = `LISTENING ${meter(mic.level)} release to send`; }
   } else {
     entity.setLevel(0);
+    if (wakeOn && inConversation() && pipelineDone && player.idle && !recording) {
+      const left = Math.ceil((conversationUntil - performance.now()) / 1000);
+      voiceStatus.textContent = `Conversation open: just talk (${left}s) · say "${assistantName.charAt(0) + assistantName.slice(1).toLowerCase()}" after it closes`;
+    } else if (wakeOn && !inConversation() && pipelineDone && player.idle && !recording && voiceStatus.textContent.startsWith('Conversation open')) {
+      voiceStatus.textContent = readyLine;
+    }
   }
   entity.render();
   const txt = `${entity.fps} fps · ${entity.count.toLocaleString()} pts`;

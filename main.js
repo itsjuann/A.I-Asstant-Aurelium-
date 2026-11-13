@@ -98,7 +98,7 @@ function createWindow() {
 
   const info = describeOS();
   pipeline = new Pipeline({ win, osName: `${info.name} ${info.version}`.trim() });
-  win.webContents.on('did-finish-load', () => { pipeline.boot(); reportMicrophoneStatus(); });
+  win.webContents.on('did-finish-load', () => { if (HEADLESS_TEST) win.webContents.executeJavaScript('window.__aurelium_headless = true'); pipeline.boot(); reportMicrophoneStatus(); });
   win.webContents.on('console-message', (_e, level, message) => { if (level >= 2) console.warn('[renderer]', message); });
 
   if (HEADLESS_TEST) runHeadlessTest();

@@ -124,7 +124,7 @@ ${open.length ? open.map(t => `- ${t.text} (${t.date})`).join('\n') : '(none)'}`
       await this.brain.ask(text, {
         signal: abort.signal,
         onDelta: (t) => this.send('transcript:delta', { id, text: t }),
-        onSentence: (s) => { if (this.current && this.current.id === id) queue.enqueue(s); }
+        onSentence: (s) => { if (this.current && this.current.id === id && !/\[silence\]/i.test(s)) queue.enqueue(s); }
       });
     } catch (err) {
       if (abort.signal.aborted) return;
