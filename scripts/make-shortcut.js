@@ -52,8 +52,11 @@ function macos() {
 // The Dock, the menu bar and the microphone prompt then all say AURELIUM.
 function macosRealBundle(appDir, electronApp) {
   const plistBuddy = '/usr/libexec/PlistBuddy';
+  console.log('Step 1/5: removing the old desktop icon...');
   fs.rmSync(appDir, { recursive: true, force: true });
+  console.log('Step 2/5: copying the app (about 300 MB, this can take up to a minute, please wait)...');
   execFileSync('ditto', [electronApp, appDir], { stdio: 'ignore' });
+  console.log('Step 3/5: setting the AURELIUM name and icon...');
   const contents = path.join(appDir, 'Contents');
   const res = path.join(contents, 'Resources');
   const plist = path.join(contents, 'Info.plist');
@@ -80,14 +83,18 @@ function macosRealBundle(appDir, electronApp) {
   set('CFBundleIdentifier', 'com.aureliummotion.aurelium');
   set('CFBundleIconFile', iconName);
   set('NSMicrophoneUsageDescription', 'AURELIUM needs the microphone so Motion can hear you.');
+  console.log('Step 4/5: linking the app to this project folder...');
   // The app Electron loads: a two-line shim pointing at this project folder.
   const appFolder = path.join(res, 'app');
   fs.mkdirSync(appFolder, { recursive: true });
   fs.writeFileSync(path.join(appFolder, 'package.json'), JSON.stringify({ name: 'aurelium', productName: 'AURELIUM', version: '1.0.0', main: 'index.js' }, null, 2));
   fs.writeFileSync(path.join(appFolder, 'index.js'), `// AURELIUM launcher shim: runs the project at the path below.\nrequire(${JSON.stringify(path.join(ROOT, 'main.js'))});\n`);
+  console.log('Step 5/5: signing the app so macOS accepts it...');
   // Re-sign locally so macOS (Apple Silicon in particular) accepts the modified bundle.
-  try { execFileSync('codesign', ['--force', '--deep', '--sign', '-', appDir], { stdio: 'ignore' }); } catch (_) {}
+  try { execFileSync('codesign', ['--force', '--deep', '--sign', '-', appDir], { stdio: 'ignore' }); } catch (err) { console.warn(`  (signing skipped: ${err.message})`); }
   try { execFileSync('xattr', ['-dr', 'com.apple.quarantine', appDir], { stdio: 'ignore' }); } catch (_) {}
+  if (!fs.existsSync(path.join(appDir, 'Contents', 'MacOS'))) throw new Error('bundle copy incomplete');
+  try { execFileSync('open', ['-R', appDir], { stdio: 'ignore' }); } catch (_) {}   // reveal it in Finder
   return appDir;
 }
 
@@ -164,8 +171,10 @@ module.exports = { makeShortcut };
 
 if (require.main === module) {
   try {
+    console.log(`Creating the AURELIUM shortcut for ${info.name}...`);
     const where = makeShortcut();
     console.log(`Desktop shortcut created for ${info.name}: ${where}`);
+    if (process.platform === 'darwin') console.log('Finder should now show it. Double-click AURELIUM to launch; allow the microphone when asked.');
   } catch (err) {
     console.error('Could not create the desktop shortcut:', err.message);
     console.error('You can still launch AURELIUM with: npm start');
