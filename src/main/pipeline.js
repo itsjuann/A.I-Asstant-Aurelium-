@@ -30,6 +30,7 @@ class Pipeline {
     this.brain = new Brain({
       osName, tools: this.tools, vaultRoot: this.vaultInfo.root,
       webTools: config.webSearch ? WEB_TOOLS : [],
+      getCompanies: () => { try { return this.vault.companySummaries(); } catch (_) { return []; } },
       onToolUse: (name) => this.status(this._toolLabel(name)),
       onServerTool: (name, input) => {
         const what = name === 'web_search' ? `Web search: ${input && input.query ? input.query : ''}` : `Read web page: ${input && input.url ? input.url : ''}`;

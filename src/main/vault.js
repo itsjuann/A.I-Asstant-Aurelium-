@@ -7,7 +7,7 @@ const os = require('os');
 
 const FOLDERS = ['00 Inbox', '01 Daily', '02 Companies', '03 Clients & Leads', '04 SOPs', '05 Ideas', '06 People', '07 Resources', '99 Archive'];
 const COMPANIES = {
-  'Aurelium Motion': 'AI growth agency selling AI receptionists to local businesses.',
+  'Aurelium Motion': 'AI growth agency for local businesses (aureliummotion.com). Describe the full offer here: what it sells, who it serves, how it works. Motion reads this note to understand the business.',
   'PeakHive': 'Shopify store, home goods.',
   'Eccellenti': 'Streetwear brand.',
   'Vorynx Lab': 'SaaS for personal trainers.'
@@ -245,6 +245,17 @@ class Vault {
       }
     }
     return tasks;
+  }
+  // Short summaries of each company note, so the brain always knows the current description.
+  companySummaries(maxChars = 900) {
+    const out = [];
+    for (const rel of this.listNotes('02 Companies')) {
+      try {
+        const text = this.readNote(rel).replace(/\n---\nCaptured by AURELIUM[\s\S]*$/, '').replace(/\s+/g, ' ').trim();
+        out.push({ name: path.basename(rel, '.md'), summary: text.slice(0, maxChars) });
+      } catch (_) {}
+    }
+    return out;
   }
   yesterdayNote() {
     const d = new Date(); d.setDate(d.getDate() - 1);

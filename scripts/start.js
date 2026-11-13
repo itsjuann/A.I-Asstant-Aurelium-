@@ -14,9 +14,15 @@ function run(cmd, args) {
   child.on('error', (err) => { console.error(`Could not start AURELIUM: ${err.message}`); process.exit(1); });
 }
 
-const macApp = path.join(ROOT, 'node_modules', 'electron', 'dist', 'Electron.app');
+let macApp = path.join(ROOT, 'node_modules', 'electron', 'dist', 'Electron.app');
+if (process.platform === 'darwin') {
+  // Prefer the AURELIUM.app bundle made by `npm run shortcut`, if it points at this project.
+  const bundle = path.join(require('os').homedir(), 'Desktop', 'AURELIUM.app');
+  const shim = path.join(bundle, 'Contents', 'Resources', 'app', 'index.js');
+  try { if (fs.readFileSync(shim, 'utf8').includes(path.join(ROOT, 'main.js'))) macApp = bundle; } catch (_) {}
+}
 if (process.platform === 'darwin' && !DEV && fs.existsSync(macApp)) {
-  console.log('Launching AURELIUM. If macOS asks whether "Electron" may use the microphone, click Allow.');
+  console.log(`Launching AURELIUM (${path.basename(macApp)}). If macOS asks about the microphone, click Allow.`);
   console.log(`Log file: ${path.join(ROOT, 'data', 'aurelium.log')}`);
   console.log('You can close this Terminal window; Motion keeps running on her own.');
   run('open', ['-n', '-a', macApp, '--args', ROOT]);   // no -W: hand off and return

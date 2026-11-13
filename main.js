@@ -27,6 +27,8 @@ console.log(`[AURELIUM] ---- launch ${new Date().toString()} ----`);
 const HEADLESS_TEST = !!process.env.AURELIUM_HEADLESS_TEST;   // used by automated checks
 const WINDOWED = !!process.env.AURELIUM_WINDOWED || HEADLESS_TEST;
 
+app.setName('AURELIUM');
+
 let win = null;
 let pipeline = null;
 

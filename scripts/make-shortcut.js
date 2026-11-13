@@ -40,19 +40,71 @@ function windows() {
 function macos() {
   const desktop = desktopDir();
   const appDir = path.join(desktop, 'AURELIUM.app');
+  const electronApp = path.join(ROOT, 'node_modules', 'electron', 'dist', 'Electron.app');
+  if (fs.existsSync(electronApp)) {
+    try { return macosRealBundle(appDir, electronApp); }
+    catch (err) { console.warn(`Could not build the full app bundle (${err.message}); making a simple launcher instead.`); }
+  }
+  return macosLauncherBundle(appDir);
+}
+
+// A real app: a copy of Electron.app renamed to AURELIUM, with our icon, that loads this project.
+// The Dock, the menu bar and the microphone prompt then all say AURELIUM.
+function macosRealBundle(appDir, electronApp) {
+  const plistBuddy = '/usr/libexec/PlistBuddy';
+  fs.rmSync(appDir, { recursive: true, force: true });
+  execFileSync('ditto', [electronApp, appDir], { stdio: 'ignore' });
+  const contents = path.join(appDir, 'Contents');
+  const res = path.join(contents, 'Resources');
+  const plist = path.join(contents, 'Info.plist');
+  // Icon
+  let iconName = 'electron.icns';
+  try {
+    const iconset = path.join(os.tmpdir(), 'aurelium.iconset');
+    fs.rmSync(iconset, { recursive: true, force: true }); fs.mkdirSync(iconset);
+    const src = path.join(ROOT, 'assets', 'icon.png');
+    for (const s of [16, 32, 64, 128, 256]) {
+      execFileSync('sips', ['-z', String(s), String(s), src, '--out', path.join(iconset, `icon_${s}x${s}.png`)], { stdio: 'ignore' });
+      execFileSync('sips', ['-z', String(s * 2), String(s * 2), src, '--out', path.join(iconset, `icon_${s}x${s}@2x.png`)], { stdio: 'ignore' });
+    }
+    execFileSync('iconutil', ['-c', 'icns', iconset, '-o', path.join(res, 'aurelium.icns')], { stdio: 'ignore' });
+    iconName = 'aurelium.icns';
+  } catch (_) { /* keep Electron's icon */ }
+  // Names and identity
+  const set = (key, value) => {
+    try { execFileSync(plistBuddy, ['-c', `Set :${key} ${value}`, plist], { stdio: 'ignore' }); }
+    catch (_) { execFileSync(plistBuddy, ['-c', `Add :${key} string ${value}`, plist], { stdio: 'ignore' }); }
+  };
+  set('CFBundleName', 'AURELIUM');
+  set('CFBundleDisplayName', 'AURELIUM');
+  set('CFBundleIdentifier', 'com.aureliummotion.aurelium');
+  set('CFBundleIconFile', iconName);
+  set('NSMicrophoneUsageDescription', 'AURELIUM needs the microphone so Motion can hear you.');
+  // The app Electron loads: a two-line shim pointing at this project folder.
+  const appFolder = path.join(res, 'app');
+  fs.mkdirSync(appFolder, { recursive: true });
+  fs.writeFileSync(path.join(appFolder, 'package.json'), JSON.stringify({ name: 'aurelium', productName: 'AURELIUM', version: '1.0.0', main: 'index.js' }, null, 2));
+  fs.writeFileSync(path.join(appFolder, 'index.js'), `// AURELIUM launcher shim: runs the project at the path below.\nrequire(${JSON.stringify(path.join(ROOT, 'main.js'))});\n`);
+  // Re-sign locally so macOS (Apple Silicon in particular) accepts the modified bundle.
+  try { execFileSync('codesign', ['--force', '--deep', '--sign', '-', appDir], { stdio: 'ignore' }); } catch (_) {}
+  try { execFileSync('xattr', ['-dr', 'com.apple.quarantine', appDir], { stdio: 'ignore' }); } catch (_) {}
+  return appDir;
+}
+
+// Fallback: a tiny launcher bundle that opens Electron.app with this project.
+function macosLauncherBundle(appDir) {
   const macos = path.join(appDir, 'Contents', 'MacOS');
   const res = path.join(appDir, 'Contents', 'Resources');
+  fs.rmSync(appDir, { recursive: true, force: true });
   fs.mkdirSync(macos, { recursive: true });
   fs.mkdirSync(res, { recursive: true });
   const launcher = path.join(macos, 'AURELIUM');
-  // Launch Electron.app directly: no Terminal, no Node on the PATH needed once dependencies are installed.
   fs.writeFileSync(launcher, `#!/bin/bash
 ROOT=${JSON.stringify(ROOT)}
 APP="$ROOT/node_modules/electron/dist/Electron.app"
 if [ -d "$APP" ]; then
   exec open -n -a "$APP" --args "$ROOT"
 fi
-# Dependencies missing: fall back to the Terminal installer.
 exec open -a Terminal "$ROOT/start-aurelium.sh"
 `);
   fs.chmodSync(launcher, 0o755);
@@ -67,18 +119,16 @@ exec open -a Terminal "$ROOT/start-aurelium.sh"
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
 </dict></plist>\n`);
-  // Build an .icns from the PNG using the tools that ship with macOS. Non-fatal if it fails.
   try {
     const iconset = path.join(os.tmpdir(), 'aurelium.iconset');
-    fs.rmSync(iconset, { recursive: true, force: true });
-    fs.mkdirSync(iconset);
+    fs.rmSync(iconset, { recursive: true, force: true }); fs.mkdirSync(iconset);
     const src = path.join(ROOT, 'assets', 'icon.png');
     for (const s of [16, 32, 64, 128, 256]) {
       execFileSync('sips', ['-z', String(s), String(s), src, '--out', path.join(iconset, `icon_${s}x${s}.png`)], { stdio: 'ignore' });
       execFileSync('sips', ['-z', String(s * 2), String(s * 2), src, '--out', path.join(iconset, `icon_${s}x${s}@2x.png`)], { stdio: 'ignore' });
     }
     execFileSync('iconutil', ['-c', 'icns', iconset, '-o', path.join(res, 'icon.icns')], { stdio: 'ignore' });
-  } catch (_) { /* icon optional */ }
+  } catch (_) {}
   return appDir;
 }
 

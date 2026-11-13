@@ -39,7 +39,8 @@ function cleanForSpeech(text) {
 const MAX_TOOL_ROUNDS = 8;
 
 class Brain {
-  constructor({ osName, tools = null, vaultRoot = '', onToolUse = () => {}, onServerTool = () => {}, webTools = [] }) {
+  constructor({ osName, tools = null, vaultRoot = '', onToolUse = () => {}, onServerTool = () => {}, webTools = [], getCompanies = () => [] }) {
+    this.getCompanies = getCompanies;
     this.osName = osName;
     this.tools = tools;            // { schemas, handlers } or null
     this.vaultRoot = vaultRoot;
@@ -82,7 +83,7 @@ class Brain {
       system: [{ type: 'text', text: systemPrompt({
         userName: config.userName, osName: this.osName, now: today.toString(), vaultRoot: this.vaultRoot,
         today: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
-        assistantName: config.assistantName, web: this.webEnabled
+        assistantName: config.assistantName, web: this.webEnabled, companies: this.getCompanies()
       }) }],
       messages: this.history,
       output_config: { effort: config.claudeEffort }

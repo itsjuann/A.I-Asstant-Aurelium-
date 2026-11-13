@@ -43,10 +43,11 @@ project folder run:
 npm start
 ```
 
-On a Mac, `npm start` hands off to the app and returns straight away, so you
-can close the Terminal window. The desktop shortcut launches Motion directly
-with no Terminal at all. If you created the shortcut before Phase 4, refresh it
-once with `npm run shortcut`.
+On a Mac, `npm run shortcut` builds a real **AURELIUM.app** on your desktop
+(its own icon, named AURELIUM in the Dock and menu bar, and macOS asks for the
+microphone as "AURELIUM"). Double-click it to launch; no Terminal needed.
+`npm start` also hands off to the app and returns, so the Terminal window can
+be closed. You can drag AURELIUM.app into your Applications folder if you like.
 
 Backup launchers if you ever need them: `start-aurelium.cmd` (Windows) or
 `start-aurelium.sh` (macOS and Linux) in the project folder. Both install the
@@ -204,6 +205,13 @@ ASSISTANT_NAME=Motion
 WAKE_WORD_TEXT=motion
 WEB_SEARCH=on
 ```
+
+### Teaching her what your businesses really do
+
+Motion reads the four notes in `02 Companies` every time she answers, so those notes are the truth about each business. Two ways to fill them in:
+
+- Say: "Motion, read aureliummotion.com and add what we actually do to the Aurelium Motion note." She fetches the site and appends an About section.
+- Or open the note in Obsidian and write it yourself. Anything you put there, she knows from the next question onward.
 
 Note on the wake word: "motion" is an ordinary English word, so with the wake word on she may react when you say it in normal conversation. Push-to-talk (hold Space) avoids that.
 
