@@ -36,6 +36,8 @@ const config = {
   wakeWordText: str('WAKE_WORD_TEXT', str('ASSISTANT_NAME', 'Motion')).toLowerCase(),
   pttHotkey: str('PTT_HOTKEY', 'Alt+Space'),
   vaultPath: str('VAULT_PATH'),
+  crmPort: parseInt(str('CRM_PORT', '4747'), 10) || 4747,
+  crmDir: str('CRM_DIR'),
   mockBrain: bool('AURELIUM_MOCK_BRAIN', false)
 };
 
@@ -66,7 +68,8 @@ function readiness() {
     assistantName: config.assistantName,
     followUpSeconds: config.followUpSeconds,
     wakeOn: config.wakeWord,
-    web: config.webSearch ? 'on' : 'off'
+    web: config.webSearch ? 'on' : 'off',
+    crmUrl: `http://127.0.0.1:${config.crmPort}`
   };
 }
 

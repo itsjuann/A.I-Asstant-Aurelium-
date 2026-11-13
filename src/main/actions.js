@@ -61,14 +61,14 @@ async function draftEmail({ to, subject, body }, vault, { compose = true } = {})
     : 'Draft saved in the vault (00 Inbox). The mail app could not be opened automatically. Nothing has been sent.' };
 }
 
-function buildActionTools({ vault, log }) {
+function buildActionTools({ vault, log, crmUrl = 'http://127.0.0.1:4747' }) {
   const logIt = (text) => { try { vault.appendDaily('Log', text); } catch (_) {} log && log(text); };
   const defs = [
     {
       name: 'open_app',
-      description: 'Open an application on this computer by name, e.g. "Safari", "Mail", "Obsidian", "Spotify", "Slack". Use for "open ..." requests about apps.',
+      description: 'Open an application on this computer by name, e.g. "Safari", "Mail", "Obsidian", "Spotify", "Slack", or "CRM" for the AURELIUM CRM dashboard. Use for "open ..." requests about apps.',
       input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'], additionalProperties: false }, strict: true,
-      run: async ({ name }) => { const r = await openApp(name); logIt(`Opened app: ${name}`); return { result: r }; }
+      run: async ({ name }) => { if (/^(the )?crm( dashboard)?$/i.test(String(name).trim())) { const r = await openUrl(crmUrl); logIt('Opened the CRM'); return { result: r }; } const r = await openApp(name); logIt(`Opened app: ${name}`); return { result: r }; }
     },
     {
       name: 'open_website',

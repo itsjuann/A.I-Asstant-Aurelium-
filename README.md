@@ -12,6 +12,7 @@ It is being built in phases. This README is updated as each phase lands.
 | 2 | Voice + brain: push-to-talk, Whisper, Claude, ElevenLabs | Ready to test |
 | 3 | Second brain: Obsidian vault, memory, morning briefing | Ready to test |
 | 4 | Actions: open apps, tasks, email drafts, web search | Ready to test |
+| 5 | CRM: built-in pipeline dashboard, Motion connected, HQ data migrated | Ready to test |
 
 ## What you need on your computer
 
@@ -226,11 +227,59 @@ Note on the wake word: "motion" is an ordinary English word, so with the wake wo
 6. Say "What's the weather in Miami right now?" or "What's new with Shopify this week?" She should search and brief you.
 7. Open today's daily note in Obsidian: every action should be listed under Log.
 
+## Phase 5: the CRM
+
+AURELIUM now has its own CRM. It runs on your Mac while AURELIUM is open, at:
+
+```
+http://127.0.0.1:4747
+```
+
+Press **C** in AURELIUM, say "Motion, open the CRM", or bookmark that address. Nothing leaves your computer: the data is plain files in `AureliumBrain/.aurelium/crm/` (one file per table) with daily backups kept in a `backups` folder alongside.
+
+### What's in it
+
+- **Home**: open leads, new this week, due today, needs attention, pipeline value, this month's goal, and the latest activity.
+- **Leads**: every contact, searchable, sortable, filterable by stage, industry, campaign, status. Click a row for the full record.
+- **Pipeline**: a board from New lead to Won or Lost. Drag a card to change its stage.
+- **Today**: appointments, tasks due, and follow-ups whose next-step date has arrived.
+- **Schedule**, **Tasks**, **Proposals**: book calls, track to-dos, draft and track proposals.
+- **Settings**: goals, your name, import and export.
+
+Inside a lead: log a call or note in one box, set the next step and date, change the stage, add a task or appointment, call or email with one click, and see the whole timeline.
+
+### Motion and the CRM
+
+Motion reads and writes the CRM directly. Every change she makes is logged on the lead's timeline and in today's daily note.
+
+| Say | What she does |
+|-----|---------------|
+| "How's the pipeline?" | Counts per stage, value, what's due, what needs attention |
+| "What's next with Jack's Firehouse?" | Pulls the lead, its next step and recent activity |
+| "What do I need to do today?" | Follow-ups due, tasks, appointments |
+| "I just called Vera Bar, they want a demo Friday" | Logs the call and sets the next step |
+| "Move Manayunk Brewing to contacted" | Changes the stage (she asks first unless you clearly told her) |
+| "Add a lead: Bright Smile Dental, dentist in Cherry Hill, referral" | Creates it |
+| "Book a call with the Taproom Friday at 2" | Adds it to the schedule and moves the lead to Call booked |
+| "Add a task: send the Taproom proposal by Friday" | Adds a CRM task |
+
+The morning briefing now includes the pipeline.
+
+### Moving your HQ data in
+
+Your leads, activities, appointments, proposals and tasks were exported from the HQ artifact into one file, `aurelium-hq-export.json`. Two ways to load it, either is fine:
+
+1. Open the CRM, go to **Settings**, and drop the file onto the import box.
+2. Or put the file in `AureliumBrain/.aurelium/crm/import/` and launch AURELIUM. It imports once and moves the file to `import/done`.
+
+Importing never overwrites a record that already exists, so running it twice is harmless. You can also export the whole CRM from Settings any time.
+
 ## Project layout (plain English)
 
 - `main.js` - the Electron "backstage": opens the window, reads CPU and memory, talks to the page.
 - `preload.js` - the narrow bridge between backstage and the page.
 - `src/renderer/` - the page itself: `index.html` (layout), `style.css` (look), `app.js` (HUD logic), `entity.js` (the particle entity, Three.js).
+- `src/main/crm/` - the CRM: `store.js` (data files), `logic.js` (stages, flags, summaries), `server.js` (the local web service), `tools.js` (what Motion can do with it). `src/crm-ui/` is the dashboard page.
 - `src/main/` - the voice and brain stack: `config.js` (reads `.env`), `personality.js` (how Motion speaks), `brain.js` (Claude, streaming, tool calls, web tools), `tts.js` (ElevenLabs voice), `stt.js` + `whisper-worker.js` (ears: local Whisper or cloud), `vault.js` (the Obsidian second brain), `tools.js` (vault tools), `actions.js` (open apps and sites, tasks, email drafts, web tool definitions), `pipeline.js` (ties it together).
 - `scripts/` - `detect-os.js` (which OS and hardware), `setup.js` (first-time setup), `doctor.js` (checks keys and services), `make-shortcut.js` (desktop shortcut), `make-icon.js` (generates the app icon).
 - `data/tasks.json` - placeholder task list for the HUD.

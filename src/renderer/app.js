@@ -217,6 +217,7 @@ window.addEventListener('keydown', (e) => {
     case 'r': case 'R': api.resetConversation(); break;
     case 'v': case 'V': api.voiceTest(); break;
     case 'b': case 'B': api.briefing(); break;
+    case 'c': case 'C': api.openCrm(); break;
     case 'F11': api.toggleFullscreen(); break;
     case 'Escape': if (!player.idle) { player.stop(); api.interrupt(); setState('idle'); } else api.quit(); break;
   }

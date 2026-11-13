@@ -7,6 +7,10 @@ const { SpeechToText } = require('./stt');
 const { openVault, dateKey } = require('./vault');
 const { buildTools } = require('./tools');
 const { buildActionTools, WEB_TOOLS } = require('./actions');
+const { Store } = require('./crm/store');
+const { startCrmServer } = require('./crm/server');
+const { buildCrmTools } = require('./crm/tools');
+const CrmLogic = require('./crm/logic');
 const fs = require('fs');
 const path = require('path');
 
@@ -25,8 +29,14 @@ class Pipeline {
     this.vaultInfo = openVault({ preferred: config.vaultPath, onStatus: (t) => console.log('[AURELIUM]', t) });
     this.vault = this.vaultInfo.vault;
     const vaultTools = buildTools({ vault: this.vault, log: (a, b) => console.log('[AURELIUM]', a, b) });
-    const actionTools = buildActionTools({ vault: this.vault, log: (t) => console.log('[AURELIUM] action:', t) });
-    this.tools = { schemas: [...vaultTools.schemas, ...actionTools.schemas], handlers: { ...vaultTools.handlers, ...actionTools.handlers } };
+    const actionTools = buildActionTools({ vault: this.vault, log: (t) => console.log('[AURELIUM] action:', t), crmUrl: `http://127.0.0.1:${config.crmPort}` });
+    // CRM: JSON files inside the vault (hidden folder), served to the browser on localhost.
+    this.crmDir = config.crmDir || path.join(this.vaultInfo.root, '.aurelium', 'crm');
+    fs.mkdirSync(path.join(this.crmDir, 'import'), { recursive: true });
+    this.crm = new Store(this.crmDir);
+    this._autoImport();
+    const crmTools = buildCrmTools({ store: this.crm, vault: this.vault, log: (t) => console.log('[AURELIUM] crm:', t) });
+    this.tools = { schemas: [...vaultTools.schemas, ...actionTools.schemas, ...crmTools.schemas], handlers: { ...vaultTools.handlers, ...actionTools.handlers, ...crmTools.handlers } };
     this.brain = new Brain({
       osName, tools: this.tools, vaultRoot: this.vaultInfo.root,
       webTools: config.webSearch ? WEB_TOOLS : [],
@@ -55,14 +65,38 @@ class Pipeline {
     const vi = this.vaultInfo;
     this.status(vi.existed ? `Second brain: ${vi.root}` : `Second brain created at ${vi.root}. In Obsidian choose "Open folder as vault" and pick it.`);
     this.vault.ensureDaily();
+    startCrmServer({ store: this.crm, port: config.crmPort, assetsDir: path.join(config.root, 'assets'), onAction: (t) => { try { this.vault.appendDaily('Log', t); } catch (_) {} } })
+      .then((srv) => { this.crmUrl = srv.url; this.status(`CRM online at ${srv.url} (${this.crm.list('leads').length} leads). Press C to open it.`); })
+      .catch((err) => this.status(`CRM could not start: ${err.message}. Is another AURELIUM running? Change CRM_PORT in .env.`));
     this.stt.warmUp();
     if (!process.env.AURELIUM_HEADLESS_TEST) setTimeout(() => this.briefing(false), 2500);
+  }
+
+  // Any export file dropped into <crm>/import/ is loaded once, then moved to import/done/.
+  _autoImport() {
+    const dir = path.join(this.crmDir, 'import');
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.json')); } catch (_) { return; }
+    for (const f of files) {
+      try {
+        const bundle = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+        const report = this.crm.importBundle(bundle);
+        fs.mkdirSync(path.join(dir, 'done'), { recursive: true });
+        fs.renameSync(path.join(dir, f), path.join(dir, 'done', f));
+        const summary = Object.entries(report).filter(([, v]) => v.added).map(([k, v]) => `${k} +${v.added}`).join(', ') || 'nothing new';
+        console.log('[AURELIUM] CRM import', f, summary);
+        try { this.vault.appendDaily('Log', `CRM import ${f}: ${summary}`); } catch (_) {}
+      } catch (err) { console.warn('[AURELIUM] CRM import failed', f, err.message); }
+    }
   }
 
   _toolLabel(name) {
     return { search_vault: 'Searching the vault…', read_note: 'Reading a note…', list_notes: 'Listing notes…', create_note: 'Filing a note…',
       append_note: 'Adding to a note…', append_daily: 'Updating today\'s daily note…', link_notes: 'Linking notes…', open_tasks: 'Checking open tasks…',
-      open_app: 'Opening the app…', open_website: 'Opening the website…', create_task: 'Adding the task…', draft_email: 'Drafting the email…' }[name] || `Using ${name}…`;
+      open_app: 'Opening the app…', open_website: 'Opening the website…', create_task: 'Adding the task…', draft_email: 'Drafting the email…',
+      crm_pipeline_summary: 'Checking the pipeline…', crm_search_leads: 'Searching the CRM…', crm_get_lead: 'Pulling the lead…', crm_due_today: 'Checking what is due…',
+      crm_add_lead: 'Adding the lead…', crm_update_lead: 'Updating the lead…', crm_set_stage: 'Moving the lead…', crm_log_activity: 'Logging it in the CRM…',
+      crm_add_task: 'Adding the task…', crm_complete_task: 'Closing the task…', crm_schedule_appointment: 'Booking it…' }[name] || `Using ${name}…`;
   }
 
   // First launch of the day: spoken briefing from yesterday's note and open tasks.
@@ -75,8 +109,13 @@ class Pipeline {
     const greeting = hour < 12 ? `Good morning, ${config.userName}.` : hour < 18 ? `Good afternoon, ${config.userName}.` : `Good evening, ${config.userName}.`;
     const yesterday = this.vault.yesterdayNote();
     const open = this.vault.openTasks(7).filter(t => !t.done);
+    let crmLine = '(CRM not available)';
+    try { const sm = CrmLogic.summary(this.crm); const due = CrmLogic.dueToday(this.crm); crmLine = `${sm.open} open leads (${sm.newThisWeek} new this week), ${sm.followUpsDue} follow-ups due, ${sm.tasksDue} CRM tasks due, ${sm.appointmentsToday} appointments today, ${sm.attention} leads need attention. Top follow-ups: ${due.followUps.slice(0, 5).map(f => `${f.business} (${f.nextStep || 'follow up'})`).join('; ') || 'none'}. Appointments: ${due.appointments.map(a => `${a.time} ${a.title} with ${a.lead}`).join('; ') || 'none'}.`; } catch (_) {}
     const prompt = `[Daily briefing request from the app, not spoken by ${config.userName}.]
-Deliver the day's briefing aloud. Open with exactly: "${greeting}" Then, in briefing style and under 120 words: what happened yesterday (from the note below), the open tasks that matter most, and one suggested first move. If there is nothing on file, say so in one line and ask what today is about. Finally call append_daily with section "Briefing" and a two-line written summary.
+Deliver the day's briefing aloud. Open with exactly: "${greeting}" Then, in briefing style and under 140 words: what happened yesterday (from the note below), the state of the CRM pipeline (below), the open tasks that matter most, and one suggested first move. If there is nothing on file, say so in one line and ask what today is about. Finally call append_daily with section "Briefing" and a two-line written summary.
+
+CRM pipeline this morning:
+${crmLine}
 
 Yesterday's daily note:
 ${yesterday || '(none)'}
@@ -173,7 +212,7 @@ ${open.length ? open.map(t => `- ${t.text} (${t.date})`).join('\n') : '(none)'}`
   }
 
   resetConversation() { this.cancel(); this.brain.reset(); this.status('Conversation cleared.'); }
-  shutdown() { this.cancel(); this.stt.stop(); }
+  shutdown() { this.cancel(); this.stt.stop(); try { this.crm.flush(); } catch (_) {} }
 }
 
 module.exports = { Pipeline };

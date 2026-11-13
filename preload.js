@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('aurelium', {
   resetConversation: () => ipcRenderer.send('brain:reset'),
   voiceTest: () => ipcRenderer.send('voice:test'),
   briefing: () => ipcRenderer.send('brain:briefing'),
+  openCrm: () => ipcRenderer.send('crm:open'),
   onState: (cb) => listen('state', cb),
   onStatus: (cb) => listen('status', cb),
   onReady: (cb) => listen('voice:ready', cb),

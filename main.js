@@ -155,6 +155,7 @@ ipcMain.on('voice:interrupt', () => pipeline && pipeline.cancel());
 ipcMain.on('brain:reset', () => pipeline && pipeline.resetConversation());
 ipcMain.on('voice:test', () => pipeline && pipeline.say(`Voice check, ${config.userName}. If you can hear this, the speakers and the voice link are working.`));
 ipcMain.on('brain:briefing', () => pipeline && pipeline.briefing(true));
+ipcMain.on('crm:open', () => { require('electron').shell.openExternal(`http://127.0.0.1:${config.crmPort}`); });
 
 app.whenReady().then(async () => {
   const info = describeOS();
