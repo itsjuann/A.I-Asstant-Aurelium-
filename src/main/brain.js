@@ -88,7 +88,10 @@ class Brain {
       messages: this.history,
       output_config: { effort: config.claudeEffort }
     };
-    const toolList = [...(this.tools ? this.tools.schemas : []), ...(this.webEnabled ? this.webTools : [])];
+    const toolList = [...(this.tools ? this.tools.schemas.map(t => ({ ...t })) : []), ...(this.webEnabled ? this.webTools : [])];
+    // The API allows at most 20 strict tools; relax the extras (last ones first) rather than fail.
+    let strictCount = toolList.filter(t => t.strict).length;
+    for (let i = toolList.length - 1; i >= 0 && strictCount > 20; i--) if (toolList[i].strict) { toolList[i].strict = false; strictCount--; }
     if (toolList.length) params.tools = toolList;
 
     const run = async (withFallbacks) => {
