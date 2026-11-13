@@ -68,7 +68,7 @@ function buildActionTools({ vault, log, crmUrl = 'http://127.0.0.1:4747' }) {
       name: 'open_app',
       description: 'Open an application on this computer by name, e.g. "Safari", "Mail", "Obsidian", "Spotify", "Slack", or "CRM" for the AURELIUM CRM dashboard. Use for "open ..." requests about apps.',
       input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'], additionalProperties: false }, strict: true,
-      run: async ({ name }) => { if (/^(the )?crm( dashboard)?$/i.test(String(name).trim())) { const r = await openUrl(crmUrl); logIt('Opened the CRM'); return { result: r }; } const r = await openApp(name); logIt(`Opened app: ${name}`); return { result: r }; }
+      run: async ({ name }) => { if (/^(the )?(aurelium )?crm( dashboard)?$/i.test(String(name).trim())) { if (global.__aureliumOpenCrm) global.__aureliumOpenCrm(); else await openUrl(crmUrl); logIt('Opened the CRM'); return { result: 'Opened the CRM dashboard.' }; } const r = await openApp(name); logIt(`Opened app: ${name}`); return { result: r }; }
     },
     {
       name: 'open_website',

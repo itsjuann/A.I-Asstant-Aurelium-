@@ -155,7 +155,17 @@ ipcMain.on('voice:interrupt', () => pipeline && pipeline.cancel());
 ipcMain.on('brain:reset', () => pipeline && pipeline.resetConversation());
 ipcMain.on('voice:test', () => pipeline && pipeline.say(`Voice check, ${config.userName}. If you can hear this, the speakers and the voice link are working.`));
 ipcMain.on('brain:briefing', () => pipeline && pipeline.briefing(true));
-ipcMain.on('crm:open', () => { require('electron').shell.openExternal(`http://127.0.0.1:${config.crmPort}`); });
+let crmWin = null;
+function openCrmWindow() {
+  const url = `http://127.0.0.1:${config.crmPort}`;
+  if (crmWin && !crmWin.isDestroyed()) { crmWin.show(); crmWin.focus(); crmWin.loadURL(url); return; }
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  crmWin = new BrowserWindow({ width: Math.min(1440, width - 80), height: Math.min(920, height - 80), title: 'AURELIUM CRM', backgroundColor: '#050709', autoHideMenuBar: true, icon: path.join(ROOT, 'assets', 'icon.png'), webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  crmWin.loadURL(url);
+  crmWin.on('closed', () => { crmWin = null; });
+}
+global.__aureliumOpenCrm = openCrmWindow;
+ipcMain.on('crm:open', () => openCrmWindow());
 
 app.whenReady().then(async () => {
   const info = describeOS();

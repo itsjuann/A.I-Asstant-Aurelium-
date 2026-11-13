@@ -32,7 +32,7 @@
   function toast(msg, bad) { const t = h('div', { class: 'toast' + (bad ? ' bad' : ''), text: msg }); $('#toast-root').append(t); setTimeout(() => t.remove(), 2800); }
   async function act(fn, okMsg) { try { const r = await fn(); if (okMsg) toast(okMsg); return r; } catch (e) { toast(e.message, true); throw e; } }
 
-  async function load() { S.data = await api('GET', '/bootstrap'); render(); }
+  async function load() { S.data = await api('GET', '/bootstrap'); window.__crmLoaded = true; render(); }
   const leads = () => S.data.leads;
   const leadById = (id) => leads().find(l => l._id === id);
   const stageName = (s) => (S.data.stageNames && S.data.stageNames[s]) || s;
@@ -91,7 +91,7 @@
     if (q === 'flag:') rows = rows.filter(l => l.flags.length);
     else if (q) rows = rows.filter(l => `${l.business} ${l.contact} ${l.email} ${l.phone} ${l.area} ${l.industry} ${l.campaign} ${l.notes} ${(l.tags || []).join(' ')}`.toLowerCase().includes(q));
     const k = S.sort.key, dir = S.sort.dir;
-    rows.sort((a, b) => { const x = a[k] ?? '', y = b[k] ?? ''; return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * dir; });
+    rows.sort((a, b) => { const x = a[k] == null ? '' : a[k], y = b[k] == null ? '' : b[k]; return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * dir; });
     const th = (label, key, cls) => h('th', { class: cls, onclick: () => { S.sort = { key, dir: S.sort.key === key ? -S.sort.dir : 1 }; render(); } }, label, S.sort.key === key ? (dir > 0 ? ' ↑' : ' ↓') : '');
     v.append(h('div', { class: 'muted', style: 'margin:0 0 8px' }, `${rows.length} leads`));
     v.append(h('div', { class: 'tablewrap' }, h('table', {}, h('thead', {}, h('tr', {}, th('Business', 'business'), th('Stage', 'stage'), th('Priority', 'priority'), th('Industry', 'industry'), th('Area', 'area'), th('Phone', 'phone'), th('Next step', 'nextStep'), th('Next date', 'nextDate'), th('Monthly', 'monthly', 'num'), th('Updated', 'updated'))),
@@ -238,7 +238,7 @@
   /* ---------- form helpers ---------- */
   const pick = (o, keys) => Object.fromEntries(keys.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
   function field(label, control, cls) { return h('label', { class: cls || '' }, label, control); }
-  function input(type, value, on) { return h('input', { type, value: value ?? '', oninput: (e) => on(e.target.value) }); }
+  function input(type, value, on) { return h('input', { type, value: value == null ? '' : value, oninput: (e) => on(e.target.value) }); }
   function textarea(value, on) { return h('textarea', { oninput: (e) => on(e.target.value) }, value || ''); }
   function select(opts, value, on) { const s = h('select', { onchange: (e) => on(e.target.value) }, opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return h('option', { value: v, selected: v === value }, l); })); return s; }
   function leadPicker(value, on) {

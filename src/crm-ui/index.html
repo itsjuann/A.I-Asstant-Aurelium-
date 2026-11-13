@@ -20,6 +20,11 @@
   <div id="drawer-root"></div>
   <div id="modal-root"></div>
   <div id="toast-root"></div>
+  <script>
+    // If anything goes wrong loading the dashboard, say so on the page instead of staying blank.
+    window.addEventListener('error', function (e) { var v = document.getElementById('view'); if (v && !v.children.length) v.innerHTML = '<div class="empty">The dashboard script failed: ' + (e.message || 'unknown error') + ' (' + (e.filename || '') + ':' + (e.lineno || '') + '). Send this line to Claude.</div>'; });
+    setTimeout(function () { var v = document.getElementById('view'); if (v && !v.children.length && !window.__crmLoaded) v.innerHTML = '<div class="empty">The dashboard did not start. Check that AURELIUM is running, then reload. If this keeps happening, open the CRM from inside AURELIUM with the C key.</div>'; }, 5000);
+  </script>
   <script src="/app.js"></script>
 </body>
 </html>
