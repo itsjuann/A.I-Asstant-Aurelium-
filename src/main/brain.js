@@ -89,9 +89,15 @@ class Brain {
       output_config: { effort: config.claudeEffort }
     };
     const toolList = [...(this.tools ? this.tools.schemas.map(t => ({ ...t })) : []), ...(this.webEnabled ? this.webTools : [])];
-    // The API allows at most 20 strict tools; relax the extras (last ones first) rather than fail.
-    let strictCount = toolList.filter(t => t.strict).length;
-    for (let i = toolList.length - 1; i >= 0 && strictCount > 20; i--) if (toolList[i].strict) { toolList[i].strict = false; strictCount--; }
+    // API limits for strict tools: at most 20 strict tools, and at most 24 optional parameters across them.
+    // Relax the tools with the most optional parameters first, rather than fail the request.
+    const optionalCount = (t) => { const props = Object.keys((t.input_schema && t.input_schema.properties) || {}); const req = (t.input_schema && t.input_schema.required) || []; return props.filter(p => !req.includes(p)).length; };
+    const strictTools = () => toolList.filter(t => t.strict);
+    while (strictTools().length > 20 || strictTools().reduce((n, t) => n + optionalCount(t), 0) > 24) {
+      const worst = strictTools().sort((a, b) => optionalCount(b) - optionalCount(a))[0];
+      if (!worst) break;
+      worst.strict = false;
+    }
     if (toolList.length) params.tools = toolList;
 
     const run = async (withFallbacks) => {
