@@ -124,6 +124,8 @@ On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** 
 
 **Microphone permission on macOS.** `npm start` (and the desktop shortcut) now opens the app the proper macOS way, so the first time you hold Space, macOS shows "Electron would like to access the microphone". Click **Allow**. If the app ever reports silence or "Nothing heard", open **System Settings > Privacy & Security > Microphone** and make sure **Electron** is switched on (and **Terminal**, if you launch from there), then relaunch. While you hold Space the status line shows a live microphone meter; if it stays empty the Mac is not sending audio to the app.
 
+**If ElevenLabs is down or unpaid.** Motion falls back on her own: local Whisper takes over her ears (the first time, it downloads a 75 MB model), and the Mac's built-in voice takes over her mouth. The transcript tells you why in one line, for example "payment_issue", which means the card on your ElevenLabs account needs fixing under Subscription at elevenlabs.io. When ElevenLabs works again, she goes back to Cate automatically.
+
 **Bluetooth headphones.** When headphones connect, macOS switches the microphone to the headset's low-quality mic. Motion now follows device changes automatically, and you can choose the mic yourself: press **M** in AURELIUM and pick one. With AirPods or similar, choosing the **MacBook microphone** for input while keeping the headphones for output usually gives the clearest pickup. The choice is remembered.
 
 **Log file.** Everything the app does is written to `data/aurelium.log` inside the AURELIUM folder. If something misbehaves, send me the last 50 lines of that file:

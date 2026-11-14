@@ -107,9 +107,24 @@ class SpeechToText {
       try { return await this.local.transcribe(samples); }
       catch (err) { this._demote(`Local Whisper failed (${err.message}).`); }
     }
-    if (this.activeBackend === 'elevenlabs') return transcribeElevenLabs(samples);
-    if (this.activeBackend === 'openai') return transcribeOpenAI(samples);
+    try {
+      if (this.activeBackend === 'elevenlabs') return await transcribeElevenLabs(samples);
+      if (this.activeBackend === 'openai') return await transcribeOpenAI(samples);
+    } catch (err) {
+      // Cloud ears failed (billing, key, network). Switch to local Whisper so Juan is never left unheard.
+      if (!this.localFailed) {
+        this.onStatus(`${err.message} Switching to local Whisper (first use downloads the model, about 75 MB).`);
+        try { return await this._useLocal(samples); } catch (e2) { this.localFailed = true; this.onStatus(`Local Whisper also failed: ${e2.message}`); }
+      }
+      throw err;
+    }
     throw new Error('No speech-to-text available. Set ELEVENLABS_API_KEY or OPENAI_API_KEY, or fix local Whisper.');
+  }
+  async _useLocal(samples) {
+    if (!this.local) this.local = new LocalWhisper({ onStatus: this.onStatus });
+    const text = await this.local.transcribe(samples);
+    this.activeBackend = 'local';
+    return text;
   }
   stop() { if (this.local) this.local.stop(); }
 }

@@ -2,7 +2,7 @@
 'use strict';
 const { config, readiness } = require('./config');
 const { Brain, describeError } = require('./brain');
-const { SpeechQueue, synthesize } = require('./tts');
+const { SpeechQueue, synthesizeWithFallback } = require('./tts');
 const { SpeechToText } = require('./stt');
 const { openVault, dateKey } = require('./vault');
 const { buildTools } = require('./tools');
@@ -190,7 +190,7 @@ ${open.length ? open.map(t => `- ${t.text} (${t.date})`).join('\n') : '(none)'}`
     this.send('transcript:start', { id, role: 'aurelium' });
     this.send('transcript:delta', { id, text });
     this.send('transcript:end', { id });
-    try { const buf = await synthesize(text); this.send('tts:audio', { runId: id, seq: 0, data: buf, text }); }
+    try { const r = await synthesizeWithFallback(text); if (r.fallback && r.announce) this.status(`Voice: ${r.reason}`); this.send('tts:audio', { runId: id, seq: 0, data: r.buf, text }); }
     catch (err) { this.status(`Voice error: ${err.message}`); }
     this.send('pipeline:done', { runId: id });
   }
