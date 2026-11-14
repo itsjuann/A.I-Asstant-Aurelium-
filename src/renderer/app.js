@@ -103,6 +103,34 @@ api.onReady((r) => {
 
 // ---------------- Voice loop ----------------
 const mic = new Mic();
+const MIC_KEY = 'aurelium.micDeviceId';
+let preferredMic = '';
+try { preferredMic = localStorage.getItem(MIC_KEY) || ''; } catch (_) {}
+mic.deviceId = preferredMic;
+mic.onDeviceChange = (label) => { addTranscript('system', `Microphone changed to: ${label}`); setVoiceStatus(`Mic: ${label}`); };
+
+// Microphone picker (press M): lists every input device; the choice is remembered.
+async function pickMicrophone() {
+  try { await mic.init(); } catch (err) { addTranscript('system', `Microphone unavailable: ${err.message}`); return; }
+  const inputs = await Mic.listInputs();
+  const box = $('mic-picker');
+  box.innerHTML = '';
+  const title = document.createElement('div'); title.className = 'label'; title.textContent = 'MICROPHONE'; box.appendChild(title);
+  const add = (label, id) => {
+    const b = document.createElement('button');
+    b.textContent = (id === mic.deviceId ? '● ' : '○ ') + label;
+    b.onclick = async () => {
+      try { await mic.init(id); try { localStorage.setItem(MIC_KEY, id); } catch (_) {} addTranscript('system', `Microphone set to: ${mic.label}`); setVoiceStatus(`Mic: ${mic.label}`, true); }
+      catch (err) { addTranscript('system', `Could not use that microphone: ${err.message}`); }
+      box.hidden = true;
+    };
+    box.appendChild(b);
+  };
+  add('System default', '');
+  for (const d of inputs) if (d.deviceId !== 'default' && d.deviceId !== 'communications') add(d.label || 'Microphone', d.deviceId);
+  const hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = 'Tip: with Bluetooth headphones, pick the MacBook microphone for clearer pickup. Press M or Esc to close.'; box.appendChild(hint);
+  box.hidden = false;
+}
 let recording = false;
 let micPeak = 0;
 let recordStart = 0;
@@ -139,7 +167,7 @@ async function startRecording() {
   if (!player.idle) { player.stop(); api.interrupt(); }   // barge-in
   pipelineDone = true;
   recording = true; micPeak = 0; recordStart = performance.now(); mic.start(); setState('listening');
-  setVoiceStatus('LISTENING… release to send', true);
+  setVoiceStatus(`LISTENING on ${mic.label}… release to send`, true);
 }
 function stopRecording() {
   if (!recording) return;
@@ -183,7 +211,7 @@ const wakeListener = new SegmentListener(mic, {
 async function toggleWake(force) {
   wakeOn = typeof force === 'boolean' ? force : !wakeOn;
   conversationUntil = 0;
-  if (wakeOn) { try { await mic.init(); } catch (err) { wakeOn = false; addTranscript('system', `Microphone unavailable: ${err.message}`); return; } wakeListener.start(); $('wake-indicator').hidden = false; setVoiceStatus(`Wake word on. Say "${assistantName.charAt(0) + assistantName.slice(1).toLowerCase()}" followed by your request.`, true); }
+  if (wakeOn) { try { await mic.init(); } catch (err) { wakeOn = false; addTranscript('system', `Microphone unavailable: ${err.message}`); return; } wakeListener.start(); $('wake-indicator').hidden = false; setVoiceStatus(`Wake word on (mic: ${mic.label}). Say "${assistantName.charAt(0) + assistantName.slice(1).toLowerCase()}" followed by your request.`, true); }
   else { wakeListener.stop(); $('wake-indicator').hidden = true; setVoiceStatus('Wake word off.'); }
 }
 
@@ -218,8 +246,9 @@ window.addEventListener('keydown', (e) => {
     case 'v': case 'V': api.voiceTest(); break;
     case 'b': case 'B': api.briefing(); break;
     case 'c': case 'C': api.openCrm(); break;
+    case 'm': case 'M': { const box = $('mic-picker'); if (!box.hidden) box.hidden = true; else pickMicrophone(); break; }
     case 'F11': api.toggleFullscreen(); break;
-    case 'Escape': if (!player.idle) { player.stop(); api.interrupt(); setState('idle'); } else api.quit(); break;
+    case 'Escape': { const box = $('mic-picker'); if (!box.hidden) { box.hidden = true; break; } if (!player.idle) { player.stop(); api.interrupt(); setState('idle'); } else api.quit(); break; }
   }
 });
 window.addEventListener('keyup', (e) => { if (e.key === ' ' && textBox.hidden) stopRecording(); });

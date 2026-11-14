@@ -70,6 +70,7 @@ Keys while the app is open:
 | `3` | Thinking: swirling orbit |
 | `4` | Speaking: pulses with the voice volume (simulated until Phase 2) |
 | `D` | Demo cycle through all four states, every 4 seconds |
+| `M` | Choose which microphone Motion listens to |
 | `V` | Voice test: she speaks a fixed line so you can check the speakers |
 | `Enter` | Type a message instead of speaking |
 | `B` | Daily briefing |
@@ -122,6 +123,8 @@ On a Mac with Apple Silicon and 8 GB or more, AURELIUM runs **Whisper locally** 
 | Start over | Press **R** to clear the conversation. |
 
 **Microphone permission on macOS.** `npm start` (and the desktop shortcut) now opens the app the proper macOS way, so the first time you hold Space, macOS shows "Electron would like to access the microphone". Click **Allow**. If the app ever reports silence or "Nothing heard", open **System Settings > Privacy & Security > Microphone** and make sure **Electron** is switched on (and **Terminal**, if you launch from there), then relaunch. While you hold Space the status line shows a live microphone meter; if it stays empty the Mac is not sending audio to the app.
+
+**Bluetooth headphones.** When headphones connect, macOS switches the microphone to the headset's low-quality mic. Motion now follows device changes automatically, and you can choose the mic yourself: press **M** in AURELIUM and pick one. With AirPods or similar, choosing the **MacBook microphone** for input while keeping the headphones for output usually gives the clearest pickup. The choice is remembered.
 
 **Log file.** Everything the app does is written to `data/aurelium.log` inside the AURELIUM folder. If something misbehaves, send me the last 50 lines of that file:
 

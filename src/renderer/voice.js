@@ -21,12 +21,35 @@ const rms = (buf) => { let s = 0; for (let i = 0; i < buf.length; i++) s += buf[
 
 // One microphone, shared by push-to-talk and the wake-word listener.
 export class Mic {
-  constructor() { this.ctx = null; this.stream = null; this.level = 0; this.capturing = false; this.chunks = []; this.onChunk = null; }
-  async init() {
-    if (this.ctx) return;
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
-    this.ctx = new AudioContext();
-    const src = this.ctx.createMediaStreamSource(this.stream);
+  constructor() { this.ctx = null; this.stream = null; this.src = null; this.proc = null; this.level = 0; this.capturing = false; this.chunks = []; this.onChunk = null; this.deviceId = ''; this.label = ''; this.onDeviceChange = null; }
+  async init(deviceId) {
+    if (this.ctx && (deviceId === undefined || deviceId === this.deviceId)) return;
+    await this._open(deviceId === undefined ? this.deviceId : deviceId);
+    if (!this._watching) {
+      this._watching = true;
+      // Headphones connecting or disconnecting: re-open so we follow the current device.
+      navigator.mediaDevices.addEventListener('devicechange', async () => {
+        const inputs = await Mic.listInputs();
+        const stillThere = !this.deviceId || inputs.some(d => d.deviceId === this.deviceId);
+        try { await this._open(stillThere ? this.deviceId : ''); if (this.onDeviceChange) this.onDeviceChange(this.label); } catch (_) {}
+      });
+    }
+  }
+  async _open(deviceId) {
+    const constraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    if (deviceId) constraints.deviceId = { exact: deviceId };
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: constraints, video: false }); }
+    catch (err) { if (!deviceId) throw err; stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }); deviceId = ''; }
+    if (this.stream) for (const t of this.stream.getTracks()) t.stop();
+    if (this.src) try { this.src.disconnect(); } catch (_) {}
+    if (this.proc) try { this.proc.disconnect(); } catch (_) {}
+    if (!this.ctx) this.ctx = new AudioContext();
+    this.stream = stream;
+    const track = stream.getAudioTracks()[0];
+    this.label = (track && track.label) || 'Default microphone';
+    this.deviceId = deviceId || '';
+    this.src = this.ctx.createMediaStreamSource(stream);
     this.proc = this.ctx.createScriptProcessor(2048, 1, 1);
     this.proc.onaudioprocess = (e) => {
       const data = e.inputBuffer.getChannelData(0);
@@ -35,9 +58,12 @@ export class Mic {
       if (this.capturing) this.chunks.push(copy);
       if (this.onChunk) this.onChunk(copy, this.level);
     };
-    src.connect(this.proc);
+    this.src.connect(this.proc);
     this.proc.connect(this.ctx.destination);   // required for onaudioprocess to fire; output is silent (input only)
     await this.ctx.resume();
+  }
+  static async listInputs() {
+    try { return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput'); } catch (_) { return []; }
   }
   get sampleRate() { return this.ctx ? this.ctx.sampleRate : 48000; }
   start() { this.chunks = []; this.capturing = true; }
@@ -57,7 +83,7 @@ export class SegmentListener {
   _chunk(chunk, level) {
     if (!this.active) return;
     const ms = (chunk.length / this.mic.sampleRate) * 1000;
-    const threshold = Math.max(0.012, this.noise * 3.5);
+    const threshold = Math.max(0.008, this.noise * 3.5);
     const speaking = level > threshold;
     if (!speaking) this.noise = this.noise * 0.97 + level * 0.03;
     if (!this.inSpeech) {
